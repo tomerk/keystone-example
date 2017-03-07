@@ -1,16 +1,18 @@
 package keystoneml.pipelines
 
+import breeze.linalg.SparseVector
 import keystoneml.evaluation.MulticlassClassifierEvaluator
 import keystoneml.loaders.NewsgroupsDataLoader
 import keystoneml.nodes.learning.NaiveBayesEstimator
-import keystoneml.nodes.nlp._
+import keystoneml.nodes.nlp.{LowerCase, NGramsFeaturizer, Tokenizer, Trim}
 import keystoneml.nodes.stats.TermFrequency
 import keystoneml.nodes.util.{CommonSparseFeatures, MaxClassifier}
 import org.apache.spark.{SparkConf, SparkContext}
 import scopt.OptionParser
-import keystoneml.workflow.Optimizer
-import breeze.linalg.SparseVector
 
+/**
+ * Created by tomerk11 on 3/7/17.
+ */
 object ExamplePipeline extends Logging {
   val appName = "ExamplePipeline"
 

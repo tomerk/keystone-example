@@ -19,7 +19,7 @@ libraryDependencies ++= Seq(
 )
 
 {
-  val defaultSparkVersion = "2.1.0"
+  val defaultSparkVersion = "2.1.0-bandits-snapshot"
   val sparkVersion =
     scala.util.Properties.envOrElse("SPARK_VERSION", defaultSparkVersion)
   val excludeHadoop = ExclusionRule(organization = "org.apache.hadoop")
