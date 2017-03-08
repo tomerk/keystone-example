@@ -58,7 +58,7 @@ object PrepFlickrData extends Serializable with Logging {
       Crop(0.5, 0.5, 1.0, 1.0)
     )
 
-    val filterMetaData = Seq[Filters](Filters(3, 2), Filters(6, 2), Filters(9, 2), Filters(12, 2), Filters(15, 2))
+    val filterMetaData = Seq[Filters](Filters(3, 2))//Seq[Filters](Filters(3, 2), Filters(6, 2), Filters(9, 2), Filters(12, 2), Filters(15, 2))
     val filters = filterMetaData.map {
       case Filters(patchSize, numFilters) =>
         val patches = csvread(new File(s"${conf.patchesLocation}/30_patches_size_$patchSize.csv"))
