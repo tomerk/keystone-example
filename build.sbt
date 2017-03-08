@@ -8,7 +8,7 @@ version := "0.4"
 
 organization := "edu.berkeley.cs.amplab"
 
-scalaVersion := "2.10.4"
+scalaVersion := "2.11.8"
 
 parallelExecution in Test := false
 
