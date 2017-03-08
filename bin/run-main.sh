@@ -17,7 +17,7 @@
 # limitations under the License.
 #
 
-SCALA_VERSION=2.10
+SCALA_VERSION=2.11
 
 # Figure out where the Scala framework is installed
 FWDIR="$(cd `dirname $0`/..; pwd)"

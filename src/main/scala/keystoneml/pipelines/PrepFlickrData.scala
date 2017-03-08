@@ -3,15 +3,12 @@ package keystoneml.pipelines
 import java.io.File
 
 import breeze.linalg._
-import breeze.numerics._
 import keystoneml.loaders.FlickrLoader
-import keystoneml.nodes.{FFTConvolver, FastWindower, LoopConvolver}
-import keystoneml.nodes.images.{Convolver, ImageVectorizer}
-import keystoneml.nodes.learning.{ZCAWhitener, ZCAWhitenerEstimator}
-import keystoneml.nodes.stats.Sampler
-import keystoneml.utils.{Image, ImageUtils, MatrixUtils, Stats}
+import keystoneml.nodes.images.Convolver
+import keystoneml.nodes.{FFTConvolver, LoopConvolver}
+import keystoneml.utils.{Image, ImageUtils}
 import keystoneml.workflow.{Identity, Pipeline}
-import org.apache.spark.bandit.policies.EpsilonGreedyPolicyParams
+import org.apache.spark.bandit.policies.{EpsilonGreedyPolicyParams, GaussianThompsonSamplingPolicyParams}
 import org.apache.spark.{SparkConf, SparkContext}
 import scopt.OptionParser
 
@@ -38,7 +35,7 @@ object PrepFlickrData extends Serializable with Logging {
     val imgInfo = task.image.metadata
     new FFTConvolver(
       task.filters,
-      math.sqrt(task.filters.cols).toInt,
+      math.sqrt(task.filters.cols/imgInfo.numChannels).toInt,
       imgInfo.numChannels).apply(task.image)
   }
 
@@ -86,13 +83,11 @@ object PrepFlickrData extends Serializable with Logging {
       case (id, img) => filters.iterator.map {
         patches => ConvolutionTask(s"$id-filters-${patches.rows}-${patches.cols}", img, patches)
       }
-    }
-
-    convolutionTasks.sample(withReplacement = false, 0.01, seed=0).repartition(conf.numParts).cache()
+    }.repartition(conf.numParts).cache()
 
     convolutionTasks.count()
 
-    val convolutionBandit = sc.bandit(convolutionOps, EpsilonGreedyPolicyParams())
+    val convolutionBandit = sc.bandit(convolutionOps, GaussianThompsonSamplingPolicyParams())
 
     logInfo("Loaded images!")
 
@@ -108,6 +103,7 @@ object PrepFlickrData extends Serializable with Logging {
         }
     }.collect()
 
+    System.out.println("partition_id,pos_in_partition,canonical_tuple_id,system_nano_start_time,system_nano_end_time,arm,reward")
     banditResults.foreach(System.out.println)
 
     Identity[Image]() andThen Identity()
