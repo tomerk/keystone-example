@@ -11,6 +11,7 @@ import keystoneml.nodes.learning.{ZCAWhitener, ZCAWhitenerEstimator}
 import keystoneml.nodes.stats.Sampler
 import keystoneml.utils.{Image, ImageUtils, MatrixUtils, Stats}
 import keystoneml.workflow.{Identity, Pipeline}
+import org.apache.spark.bandit.policies.EpsilonGreedyPolicyParams
 import org.apache.spark.{SparkConf, SparkContext}
 import scopt.OptionParser
 
@@ -91,32 +92,23 @@ object PrepFlickrData extends Serializable with Logging {
 
     convolutionTasks.count()
 
+    val convolutionBandit = sc.bandit(convolutionOps, EpsilonGreedyPolicyParams())
+
     logInfo("Loaded images!")
-    /*for (patchSize <- conf.minPatchSize to conf.maxPatchSize) {
-      logInfo(s"Extracting & Whitening ${conf.numFilters} patches of size $patchSize")
-      val patchExtractor = new FastWindower(conf.patchSteps*3, patchSize)
-        .andThen(ImageVectorizer.apply)
-        .andThen(new Sampler(whitenerSize))
 
-      val (filters, whitener): (DenseMatrix[Double], ZCAWhitener) = {
-        val baseFilters = patchExtractor(imgs)
-        val baseFilterMat = Stats.normalizeRows(MatrixUtils.rowsToMatrix(baseFilters), 10.0)
-        val whitener = new ZCAWhitenerEstimator(eps = conf.whiteningEpsilon).fitSingle(baseFilterMat)
+    val banditResults = convolutionTasks.mapPartitionsWithIndex {
+      case (pid, it) =>
+        it.zipWithIndex.map {
+          case (task, index) =>
+            val startTime = System.nanoTime()
+            val action = convolutionBandit.applyAndOutputReward(task)._2
+            val endTime = System.nanoTime()
 
-        //Normalize them.
-        val sampleFilters = MatrixUtils.sampleRows(baseFilterMat, conf.numFilters)
-        val unnormFilters = whitener(sampleFilters)
-        val unnormSq = pow(unnormFilters, 2.0)
-        val twoNorms = sqrt(sum(unnormSq(*, ::)))
+            s"$pid,$index,${task.id},$startTime,$endTime,${action.arm},${action.reward}"
+        }
+    }.collect()
 
-        ((unnormFilters(::, *) / (twoNorms + 1e-10)) * whitener.whitener.t, whitener)
-      }
-
-      logInfo(s"Saving ${conf.numFilters} patches of size $patchSize")
-      csvwrite(new File(s"${conf.outputLocation}/${conf.numFilters}_patches_size_$patchSize.csv"), filters)
-    }
-
-    logInfo("GOT Filters!")*/
+    banditResults.foreach(System.out.println)
 
     Identity[Image]() andThen Identity()
   }
