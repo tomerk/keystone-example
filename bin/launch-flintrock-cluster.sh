@@ -8,7 +8,7 @@
 flintrock launch bandits-cluster \
     --spark-version "" \
     --spark-git-repository https://github.com/tomerk/spark.git \
-    --spark-git-commit d2c4c7e6a20bcd9af74fe3b9b95d9eece59778d9 \
+    --spark-git-commit 2d56a3135c96496f595afd95e427d424ec8a84a5 \
     --ec2-instance-type r3.2xlarge \
     --ec2-spot-price 1.00 \
     --num-slaves 1
