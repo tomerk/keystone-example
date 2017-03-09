@@ -129,7 +129,7 @@ object PrepFlickrData extends Serializable with Logging {
     help("help") text("prints this usage text")
     opt[String]("trainLocation") required() action { (x,c) => c.copy(trainLocation=x) }
     opt[String]("patchesLocation") required() action { (x,c) => c.copy(patchesLocation=x) }
-    opt[String]("outputLocation") required() action { (x,c) => c.copy(patchesLocation=x) }
+    opt[String]("outputLocation") required() action { (x,c) => c.copy(outputLocation=x) }
     opt[Double]("whiteningEpsilon") action { (x,c) => c.copy(whiteningEpsilon=x) }
     opt[Int]("numFilters") action { (x,c) => c.copy(numFilters=x) }
     opt[Int]("minPatchSize") action { (x,c) => c.copy(minPatchSize=x) }
