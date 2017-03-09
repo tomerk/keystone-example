@@ -1,6 +1,6 @@
 package keystoneml.pipelines
 
-import java.io.File
+import java.io.{BufferedWriter, File, FileOutputStream, OutputStreamWriter}
 
 import breeze.linalg._
 import keystoneml.loaders.FlickrLoader
@@ -103,8 +103,12 @@ object PrepFlickrData extends Serializable with Logging {
         }
     }.collect()
 
-    System.out.println("partition_id,pos_in_partition,canonical_tuple_id,system_nano_start_time,system_nano_end_time,arm,reward")
-    banditResults.foreach(System.out.println)
+    val writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(conf.outputLocation)))
+    writer.write("partition_id,pos_in_partition,canonical_tuple_id,system_nano_start_time,system_nano_end_time,arm,reward\n")
+    for (x <- banditResults) {
+      writer.write(x + "\n")
+    }
+    writer.close()
 
     Identity[Image]() andThen Identity()
   }
@@ -112,6 +116,7 @@ object PrepFlickrData extends Serializable with Logging {
   case class RandomCifarConfig(
       trainLocation: String = "",
       patchesLocation: String = "",
+      outputLocation: String = "",
       numFilters: Int = 30,
       whiteningEpsilon: Double = 0.1,
       minPatchSize: Int = 3,
@@ -124,6 +129,7 @@ object PrepFlickrData extends Serializable with Logging {
     help("help") text("prints this usage text")
     opt[String]("trainLocation") required() action { (x,c) => c.copy(trainLocation=x) }
     opt[String]("patchesLocation") required() action { (x,c) => c.copy(patchesLocation=x) }
+    opt[String]("outputLocation") required() action { (x,c) => c.copy(patchesLocation=x) }
     opt[Double]("whiteningEpsilon") action { (x,c) => c.copy(whiteningEpsilon=x) }
     opt[Int]("numFilters") action { (x,c) => c.copy(numFilters=x) }
     opt[Int]("minPatchSize") action { (x,c) => c.copy(minPatchSize=x) }

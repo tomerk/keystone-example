@@ -11,7 +11,7 @@ cd Flickr8k_Dataset
 # Directory splitting code sourced from:
 # http://stackoverflow.com/questions/29116212/split-a-folder-into-multiple-subfolders-in-terminal-bash-script
 ~/hadoop/bin/hdfs dfs -mkdir /flickr_jpgs
-dir_size=500
+dir_size=125
 dir_name="flickr_jpgs"
 n=$((`find . -maxdepth 1 -type f | wc -l`/$dir_size+1))
 for i in `seq 1 $n`;
