@@ -9,9 +9,9 @@ flintrock launch bandits-cluster \
     --spark-version "" \
     --spark-git-repository https://github.com/tomerk/spark.git \
     --spark-git-commit 2d56a3135c96496f595afd95e427d424ec8a84a5 \
-    --ec2-instance-type r3.2xlarge \
-    --ec2-spot-price 1.00 \
-    --num-slaves 4
+    --ec2-instance-type r3.xlarge \
+    --ec2-spot-price 0.50 \
+    --num-slaves 8
 
 flintrock run-command bandits-cluster 'sudo yum update -y'
 

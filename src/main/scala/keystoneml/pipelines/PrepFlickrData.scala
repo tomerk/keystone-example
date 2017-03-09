@@ -9,7 +9,7 @@ import keystoneml.nodes.{FFTConvolver, LoopConvolver}
 import keystoneml.utils.{Image, ImageUtils}
 import keystoneml.workflow.{Identity, Pipeline}
 import org.apache.spark.bandit.policies.{EpsilonGreedyPolicyParams, GaussianThompsonSamplingPolicyParams}
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.{Partitioner, SparkConf, SparkContext}
 import scopt.OptionParser
 
 case class Crop(startX: Double, startY: Double, endX: Double, endY: Double)
@@ -65,25 +65,28 @@ object PrepFlickrData extends Serializable with Logging {
         patches(0 until numFilters,::)
     }
 
-    val imgs = FlickrLoader(sc, conf.trainLocation)
+    val imgs = FlickrLoader(sc, conf.trainLocation, conf.labelLocation)
     val croppedImgs = imgs.flatMap{
       case (id, img) => crops.iterator.map {
-        case Crop(0, 0, 1, 1) => (id, img)
+        case Crop(0, 0, 1, 1) => (id.toInt % conf.numParts, (id, img))
         case Crop(startX, startY, endX, endY) =>
-          (s"$id-cropped-$startX-$startY-$endX-$endY", ImageUtils.crop(
+          (id.toInt % conf.numParts, (s"$id-cropped-$startX-$startY-$endX-$endY", ImageUtils.crop(
             img,
             (img.metadata.xDim * startX).toInt,
             (img.metadata.yDim * startY).toInt,
             (img.metadata.xDim * endX).toInt,
             (img.metadata.yDim * endY).toInt
-          ))
-    }}
+          )))
+    }}.partitionBy(new Partitioner {
+      override def numPartitions = conf.numParts
+      override def getPartition(key: Any) = key.asInstanceOf[Int]
+    }).map(_._2)
 
     val convolutionTasks = croppedImgs.flatMap {
       case (id, img) => filters.iterator.map {
         patches => ConvolutionTask(s"$id-filters-${patches.rows}-${patches.cols}", img, patches)
       }
-    }.repartition(conf.numParts).cache()
+    }.cache()
 
     convolutionTasks.count()
 
@@ -116,7 +119,9 @@ object PrepFlickrData extends Serializable with Logging {
   case class RandomCifarConfig(
       trainLocation: String = "",
       patchesLocation: String = "",
+      labelLocation: String = "",
       outputLocation: String = "",
+      communicationRate: String = "5s",
       numFilters: Int = 30,
       whiteningEpsilon: Double = 0.1,
       minPatchSize: Int = 3,
@@ -130,6 +135,8 @@ object PrepFlickrData extends Serializable with Logging {
     opt[String]("trainLocation") required() action { (x,c) => c.copy(trainLocation=x) }
     opt[String]("patchesLocation") required() action { (x,c) => c.copy(patchesLocation=x) }
     opt[String]("outputLocation") required() action { (x,c) => c.copy(outputLocation=x) }
+    opt[String]("labelLocation") required() action { (x,c) => c.copy(labelLocation=x) }
+    opt[String]("communicationRate") action { (x,c) => c.copy(communicationRate=x) }
     opt[Double]("whiteningEpsilon") action { (x,c) => c.copy(whiteningEpsilon=x) }
     opt[Int]("numFilters") action { (x,c) => c.copy(numFilters=x) }
     opt[Int]("minPatchSize") action { (x,c) => c.copy(minPatchSize=x) }
@@ -146,7 +153,9 @@ object PrepFlickrData extends Serializable with Logging {
   def main(args: Array[String]) = {
     val appConfig = parse(args)
 
-    val conf = new SparkConf().setAppName(appName)
+    val conf = new SparkConf().setAppName(appName).set(
+      "spark.bandits.communicationRate",
+      appConfig.communicationRate)
     conf.setIfMissing("spark.master", "local[4]")
     val sc = new SparkContext(conf)
     run(sc, appConfig)

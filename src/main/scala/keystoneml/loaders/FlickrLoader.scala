@@ -18,10 +18,16 @@ object FlickrLoader {
    *                 that each tar file contains images within a directory. The name of the
    *                 directory is treated as the className.
    */
-  def apply(sc: SparkContext, dataPath: String): RDD[(String, Image)] = {
+  def apply(sc: SparkContext, dataPath: String, labelsPath: String): RDD[(String, Image)] = {
     val filePathsRDD = ImageLoaderUtils.getFilePathsRDD(sc, dataPath)
 
-    val labeledImages = ImageLoaderUtils.loadFiles(filePathsRDD, id => id.hashCode, LabeledImage.apply)
+    val labelsMapFile = scala.io.Source.fromFile(labelsPath)
+    val labelsMap = labelsMapFile.getLines().map(x => x.toString).toArray.map { line =>
+      val parts = line.split(" ")
+      (parts(0), parts(1).toInt)
+    }.toMap
+
+    val labeledImages = ImageLoaderUtils.loadFiles(filePathsRDD, labelsMap, LabeledImage.apply)
     labeledImages.map(i => (i.label.toString, i.image))
   }
 }
