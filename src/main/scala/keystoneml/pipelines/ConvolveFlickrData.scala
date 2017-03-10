@@ -8,7 +8,7 @@ import keystoneml.nodes.images.Convolver
 import keystoneml.nodes.{FFTConvolver, LoopConvolver}
 import keystoneml.utils.{Image, ImageUtils}
 import keystoneml.workflow.{Identity, Pipeline}
-import org.apache.spark.bandit.policies.{EpsilonGreedyPolicyParams, GaussianThompsonSamplingPolicyParams}
+import org.apache.spark.bandit.policies._
 import org.apache.spark.{Partitioner, SparkConf, SparkContext}
 import scopt.OptionParser
 
@@ -19,7 +19,30 @@ case class Filters(patchSize: Int, numFilters: Int)
 case class ConvolutionTask(id: String,
                            image: Image,
                            filters: DenseMatrix[Double])
-object PrepFlickrData extends Serializable with Logging {
+object ConvolveFlickrData extends Serializable with Logging {
+
+  def features(task: ConvolutionTask): DenseVector[Double] = {
+    DenseVector(
+      task.image.metadata.xDim,
+      task.image.metadata.yDim,
+      task.filters.cols,
+      task.filters.rows
+    )
+  }
+
+  def kernelFeatures(task: ConvolutionTask): DenseVector[Double] = {
+    DenseVector(
+      task.image.metadata.xDim,
+      task.image.metadata.yDim,
+      task.image.metadata.xDim * task.image.metadata.yDim,
+      task.filters.cols,
+      task.filters.rows,
+      task.image.metadata.xDim * task.image.metadata.yDim *
+        (math.log(task.image.metadata.xDim) + math.log(task.image.metadata.yDim)), // fft
+      task.image.metadata.xDim * task.image.metadata.yDim * task.filters.cols * task.filters.rows // matrix multiply
+    )
+  }
+
 
   def matMultConvolve(task: ConvolutionTask): Image = {
     val imgInfo = task.image.metadata
@@ -50,20 +73,73 @@ object PrepFlickrData extends Serializable with Logging {
     //Set up some constants.
     val convolutionOps = Seq(loopConvolve(_), matMultConvolve(_), fftConvolve(_))
 
-    val crops = Seq(
-      Crop(0, 0, 1, 1),
-      Crop(0, 0, 0.5, 0.5),
-      Crop(0, 0.5, 0.5, 1.0),
-      Crop(0.5, 0, 1.0, 0.5),
-      Crop(0.5, 0.5, 1.0, 1.0)
-    )
+    val crops = conf.crops.trim.split(':').map { str =>
+      val splitStr = str.split(',')
+      Crop(splitStr(0).toDouble, splitStr(1).toDouble, splitStr(2).toDouble, splitStr(3).toDouble)
+    }
 
-    val filterMetaData = Seq[Filters](Filters(15, 20))//Seq[Filters](Filters(3, 2), Filters(6, 2), Filters(9, 2), Filters(12, 2), Filters(15, 2))
+    val filterMetaData = conf.patches.trim.split(':').map { str =>
+      Filters(str.split(',')(0).toInt, str.split(',')(1).toInt)
+    }
     val filters = filterMetaData.map {
       case Filters(patchSize, numFilters) =>
         val patches = csvread(new File(s"${conf.patchesLocation}/30_patches_size_$patchSize.csv"))
         patches(0 until numFilters,::)
     }
+
+    val bandits = (0 until conf.numParts).map { _ =>
+      conf.policy.trim.toLowerCase.split(':') match {
+        // Constant Policies
+        case Array("constant", arm) =>
+          sc.bandit(convolutionOps, ConstantPolicyParams(arm.toInt))
+
+        // Non-contextual policies
+        case Array("epsilon-greedy") =>
+          sc.bandit(convolutionOps, EpsilonGreedyPolicyParams())
+        case Array("epsilon-greedy", epsilon) =>
+          sc.bandit(convolutionOps, EpsilonGreedyPolicyParams(epsilon.toDouble))
+        case Array("gaussian-thompson-sampling") =>
+          sc.bandit(convolutionOps, GaussianThompsonSamplingPolicyParams())
+        case Array("gaussian-thompson-sampling", varMultiplier) =>
+          sc.bandit(convolutionOps, GaussianThompsonSamplingPolicyParams(varMultiplier.toDouble))
+        case Array("ucb1") =>
+          sc.bandit(convolutionOps, UCB1PolicyParams())
+        case Array("ucb1", rewardRange) =>
+          sc.bandit(convolutionOps, UCB1PolicyParams(rewardRange.toDouble))
+
+        // Contextual policies
+        case Array("contextual-epsilon-greedy") =>
+          sc.contextualBandit(convolutionOps, features, ContextualEpsilonGreedyPolicyParams(4))
+        case Array("contextual-epsilon-greedy", epsilon) =>
+          sc.contextualBandit(convolutionOps, features, ContextualEpsilonGreedyPolicyParams(4, epsilon.toDouble))
+        case Array("linear-thompson-sampling") =>
+          sc.contextualBandit(convolutionOps, features, LinThompsonSamplingPolicyParams(4))
+        case Array("linear-thompson-sampling", varMultiplier) =>
+          sc.contextualBandit(convolutionOps, features, LinThompsonSamplingPolicyParams(4, varMultiplier.toDouble))
+        case Array("lin-ucb") =>
+          sc.contextualBandit(convolutionOps, features, LinUCBPolicyParams(4))
+        case Array("lin-ucb", alpha) =>
+          sc.contextualBandit(convolutionOps, features, LinUCBPolicyParams(4, alpha.toDouble))
+
+        // Contextual Kernel policies
+        case Array("kernel-contextual-epsilon-greedy") =>
+          sc.contextualBandit(convolutionOps, kernelFeatures, ContextualEpsilonGreedyPolicyParams(7))
+        case Array("kernel-contextual-epsilon-greedy", epsilon) =>
+          sc.contextualBandit(convolutionOps, kernelFeatures, ContextualEpsilonGreedyPolicyParams(7, epsilon.toDouble))
+        case Array("kernel-linear-thompson-sampling") =>
+          sc.contextualBandit(convolutionOps, kernelFeatures, LinThompsonSamplingPolicyParams(7))
+        case Array("kernel-linear-thompson-sampling", varMultiplier) =>
+          sc.contextualBandit(convolutionOps, kernelFeatures, LinThompsonSamplingPolicyParams(7, varMultiplier.toDouble))
+        case Array("kernel-lin-ucb") =>
+          sc.contextualBandit(convolutionOps, kernelFeatures, LinUCBPolicyParams(7))
+        case Array("kernel-lin-ucb", alpha) =>
+          sc.contextualBandit(convolutionOps, kernelFeatures, LinUCBPolicyParams(7, alpha.toDouble))
+
+        case _ =>
+          throw new IllegalArgumentException(s"Invalid policy ${conf.policy}")
+      }
+    }
+
 
     val imgs = FlickrLoader(sc, conf.trainLocation, conf.labelLocation)
     val croppedImgs = imgs.flatMap{
@@ -90,16 +166,20 @@ object PrepFlickrData extends Serializable with Logging {
 
     convolutionTasks.count()
 
-    val convolutionBandit = sc.bandit(convolutionOps, GaussianThompsonSamplingPolicyParams())
-
     logInfo("Loaded images!")
 
     val banditResults = convolutionTasks.mapPartitionsWithIndex {
       case (pid, it) =>
+        val bandit = if (conf.disableMulticore) {
+          bandits(pid)
+        } else {
+          bandits(0)
+        }
+
         it.zipWithIndex.map {
           case (task, index) =>
             val startTime = System.nanoTime()
-            val action = convolutionBandit.applyAndOutputReward(task)._2
+            val action = bandit.applyAndOutputReward(task)._2
             val endTime = System.nanoTime()
 
             s"$pid,$index,${task.id},$startTime,$endTime,${action.arm},${action.reward}"
@@ -121,12 +201,11 @@ object PrepFlickrData extends Serializable with Logging {
       patchesLocation: String = "",
       labelLocation: String = "",
       outputLocation: String = "",
+      crops: String = "0,0,1,1:0,0,0.5,0.5:0,0.5,0.5,1.0:0.5,0,1,0.5:0.5,0.5,1,1",
+      patches: String = "15,2",
+      policy: String = "",
       communicationRate: String = "5s",
-      numFilters: Int = 30,
-      whiteningEpsilon: Double = 0.1,
-      minPatchSize: Int = 3,
-      maxPatchSize: Int = 30,
-      patchSteps: Int = 1,
+      disableMulticore: Boolean = false,
       numParts: Int = 64)
 
   def parse(args: Array[String]): RandomCifarConfig = new OptionParser[RandomCifarConfig](appName) {
@@ -136,12 +215,11 @@ object PrepFlickrData extends Serializable with Logging {
     opt[String]("patchesLocation") required() action { (x,c) => c.copy(patchesLocation=x) }
     opt[String]("outputLocation") required() action { (x,c) => c.copy(outputLocation=x) }
     opt[String]("labelLocation") required() action { (x,c) => c.copy(labelLocation=x) }
+    opt[String]("policy") required() action { (x,c) => c.copy(policy=x) }
+    opt[String]("patches") action { (x,c) => c.copy(patches=x) }
+    opt[String]("crops") action { (x,c) => c.copy(crops=x) }
     opt[String]("communicationRate") action { (x,c) => c.copy(communicationRate=x) }
-    opt[Double]("whiteningEpsilon") action { (x,c) => c.copy(whiteningEpsilon=x) }
-    opt[Int]("numFilters") action { (x,c) => c.copy(numFilters=x) }
-    opt[Int]("minPatchSize") action { (x,c) => c.copy(minPatchSize=x) }
-    opt[Int]("maxPatchSize") action { (x,c) => c.copy(maxPatchSize=x) }
-    opt[Int]("patchSteps") action { (x,c) => c.copy(patchSteps=x) }
+    opt[Unit]("disableMulticore") action { (x,c) => c.copy(disableMulticore=true) }
     opt[Int]("numParts") action { (x,c) => c.copy(numParts=x) }
   }.parse(args, RandomCifarConfig()).get
 
