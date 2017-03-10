@@ -3,6 +3,8 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 echo "Launching cluster"
 $DIR/launch-flintrock-cluster.sh
 
+flintrock describe bandits-cluster
+
 echo "Prepping data"
 $DIR/launch-flintrock-cluster.sh
 
