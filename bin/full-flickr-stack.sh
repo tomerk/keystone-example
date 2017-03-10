@@ -6,7 +6,7 @@ $DIR/launch-flintrock-cluster.sh
 flintrock describe bandits-cluster
 
 echo "Prepping data"
-$DIR/launch-flintrock-cluster.sh
+$DIR/prep-flickr-data.sh
 
 echo "Running experiments"
 $DIR/run-flickr-experiments.sh

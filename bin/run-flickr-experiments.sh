@@ -21,7 +21,7 @@ do
             flintrock run-command --master-only bandits-cluster "
 cd keystone-example
 KEYSTONE_MEM=$KEYSTONE_MEM ./bin/run-pipeline.sh \
-  keystoneml.pipelines.PrepFlickrData \
+  keystoneml.pipelines.ConvolveFlickrData \
   --trainLocation /flickr_jpgs \
   --patchesLocation patches \
   --outputLocation $OUT_CSV \
@@ -41,7 +41,7 @@ KEYSTONE_MEM=$KEYSTONE_MEM ./bin/run-pipeline.sh \
                 flintrock run-command --master-only bandits-cluster "
 cd keystone-example
 KEYSTONE_MEM=$KEYSTONE_MEM ./bin/run-pipeline.sh \
-  keystoneml.pipelines.PrepFlickrData \
+  keystoneml.pipelines.ConvolveFlickrData \
   --trainLocation /flickr_jpgs \
   --patchesLocation patches \
   --outputLocation $OUT_CSV \

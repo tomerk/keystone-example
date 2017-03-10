@@ -27,7 +27,11 @@ object FlickrLoader {
       (parts(0), parts(1).toInt)
     }.toMap
 
-    val labeledImages = ImageLoaderUtils.loadFiles(filePathsRDD, labelsMap, LabeledImage.apply)
+    def labelsMapF(fname: String): Int = {
+      labelsMap(fname.split('/')(1))
+    }
+
+    val labeledImages = ImageLoaderUtils.loadFiles(filePathsRDD, labelsMapF, LabeledImage.apply)
     labeledImages.map(i => (i.label.toString, i.image))
   }
 }
