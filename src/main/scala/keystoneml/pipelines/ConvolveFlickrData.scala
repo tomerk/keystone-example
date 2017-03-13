@@ -8,6 +8,7 @@ import keystoneml.nodes.images.Convolver
 import keystoneml.nodes.{FFTConvolver, LoopConvolver}
 import keystoneml.utils.{Image, ImageUtils}
 import keystoneml.workflow.{Identity, Pipeline}
+import org.apache.spark.bandit.{Action, BanditTrait}
 import org.apache.spark.bandit.policies._
 import org.apache.spark.{Partitioner, SparkConf, SparkContext}
 import scopt.OptionParser
@@ -15,6 +16,23 @@ import scopt.OptionParser
 case class Crop(startX: Double, startY: Double, endX: Double, endY: Double)
 
 case class Filters(patchSize: Int, numFilters: Int)
+
+class ConstantBandit[A, B](arm: Int, func: A => B) extends BanditTrait[A, B] {
+  override def apply(in: A): B = func(in)
+
+  override def applyAndOutputReward(in: A): (B, Action) = {
+    val startTime = System.nanoTime()
+    val result = func(in)
+    val endTime = System.nanoTime()
+
+    // Intentionally provide -1 * elapsed time as the reward, so it's better to be faster
+    val reward: Double = startTime - endTime
+
+    (result, Action(arm, reward))
+  }
+
+  override def vectorizedApply(in: Seq[A]): Seq[B] = in.map(func)
+}
 
 case class ConvolutionTask(id: String,
                            image: Image,
@@ -91,7 +109,7 @@ object ConvolveFlickrData extends Serializable with Logging {
       conf.policy.trim.toLowerCase.split(':') match {
         // Constant Policies
         case Array("constant", arm) =>
-          sc.bandit(convolutionOps, ConstantPolicyParams(arm.toInt))
+          new ConstantBandit(arm.toInt, convolutionOps(arm.toInt))
 
         // Non-contextual policies
         case Array("epsilon-greedy") =>
@@ -167,6 +185,24 @@ object ConvolveFlickrData extends Serializable with Logging {
     convolutionTasks.count()
 
     logInfo("Loaded images!")
+    if (conf.warmup) {
+      logInfo("Warming up!")
+      convolutionTasks.mapPartitionsWithIndex {
+        case (pid, it) =>
+          if (conf.disableMulticore) {
+            bandits(pid)
+          } else {
+            bandits(0)
+          }
+
+          it.take(3).map { task =>
+            features(task)
+            fftConvolve(task)
+            loopConvolve(task)
+            matMultConvolve(task)
+          }
+      }.count()
+    }
 
     val banditResults = convolutionTasks.mapPartitionsWithIndex {
       case (pid, it) =>
@@ -206,6 +242,7 @@ object ConvolveFlickrData extends Serializable with Logging {
       policy: String = "",
       communicationRate: String = "5s",
       disableMulticore: Boolean = false,
+      warmup: Boolean = false,
       numParts: Int = 64)
 
   def parse(args: Array[String]): RandomCifarConfig = new OptionParser[RandomCifarConfig](appName) {
@@ -220,6 +257,7 @@ object ConvolveFlickrData extends Serializable with Logging {
     opt[String]("crops") action { (x,c) => c.copy(crops=x) }
     opt[String]("communicationRate") action { (x,c) => c.copy(communicationRate=x) }
     opt[Unit]("disableMulticore") action { (x,c) => c.copy(disableMulticore=true) }
+    opt[Unit]("warmup") action { (x,c) => c.copy(warmup=true) }
     opt[Int]("numParts") action { (x,c) => c.copy(numParts=x) }
   }.parse(args, RandomCifarConfig()).get
 
@@ -231,7 +269,7 @@ object ConvolveFlickrData extends Serializable with Logging {
   def main(args: Array[String]) = {
     val appConfig = parse(args)
 
-    val conf = new SparkConf().setAppName(appName).set(
+    val conf = new SparkConf().setAppName(s"$appName-${appConfig.crops}-${appConfig.patches}-${appConfig.policy}-${appConfig.communicationRate}-${appConfig.disableMulticore}").set(
       "spark.bandits.communicationRate",
       appConfig.communicationRate)
     conf.setIfMissing("spark.master", "local[4]")
