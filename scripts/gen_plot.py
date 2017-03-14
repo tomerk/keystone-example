@@ -26,7 +26,8 @@ plot_every_x = 25
 df = bandit_rewards.sort_values(['pos_in_partition','partition_id'],ascending=True)
 df = df[df['pos_in_partition'] % plot_every_x == 0]
 sns.set_style("whitegrid")
-ax = sns.boxplot(x="pos_in_partition", y="end_time", color='slategrey', data=df)
+bandit_color = 'slategrey'
+ax = sns.boxplot(x="pos_in_partition", y="end_time", color=bandit_color, data=df)
 
 
 ## Plot the constant arms
@@ -52,8 +53,10 @@ sns.pointplot(x="pos_in_partition", y="end_time", markers='', ci=None, hue='poli
 
 
 ## Add some pizazz
-import matplotlib.ticker as ticker
-ax.xaxis.set_major_locator(ticker.MaxNLocator(25, prune="both"))
+for label in ax.get_xticklabels():
+	label.set_visible(False)
+for label in ax.get_xticklabels()[::2]:
+	label.set_visible(True)
 ax.set_ylim(0,math.ceil(max_end_time/25.0)*25)
 ax.set(xlabel='Items Processed by vCPU Core', ylabel='Elapsed Time (s)')
 
@@ -62,6 +65,7 @@ new_handles = []
 handles, labels = ax.get_legend_handles_labels()
 for handle, label in zip(handles, labels):
 	new_handles.append(mpatches.Patch(color=handle.get_edgecolors()[0], label=policy_labels[label.split('/')[-1].split('-')[0]]))
+new_handles.append(mpatches.Patch(color=bandit_color, label='Bandit Policy'))
 ax.legend(handles=new_handles)
 
 #ax.legend_.remove()
