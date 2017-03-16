@@ -1,6 +1,7 @@
 package keystoneml.pipelines
 
 import java.io.{BufferedWriter, File, FileOutputStream, OutputStreamWriter}
+import java.util.Random
 
 import breeze.linalg._
 import keystoneml.loaders.FlickrLoader
@@ -120,10 +121,10 @@ object ConvolveFlickrData extends Serializable with Logging {
           sc.bandit(convolutionOps, GaussianThompsonSamplingPolicyParams())
         case Array("gaussian-thompson-sampling", varMultiplier) =>
           sc.bandit(convolutionOps, GaussianThompsonSamplingPolicyParams(varMultiplier.toDouble))
-        case Array("ucb1") =>
-          sc.bandit(convolutionOps, UCB1PolicyParams())
-        case Array("ucb1", rewardRange) =>
-          sc.bandit(convolutionOps, UCB1PolicyParams(rewardRange.toDouble))
+        case Array("pseudo-ucb") =>
+          sc.bandit(convolutionOps, UCBPseudoTunedPolicyParams())
+        case Array("pseudo-ucb", rewardRange) =>
+          sc.bandit(convolutionOps, UCBPseudoTunedPolicyParams(rewardRange.toDouble))
 
         // Contextual policies
         case Array("contextual-epsilon-greedy") =>
@@ -131,7 +132,7 @@ object ConvolveFlickrData extends Serializable with Logging {
         case Array("contextual-epsilon-greedy", epsilon) =>
           sc.contextualBandit(convolutionOps, features, ContextualEpsilonGreedyPolicyParams(4, epsilon.toDouble))
         case Array("linear-thompson-sampling") =>
-          sc.contextualBandit(convolutionOps, features, LinThompsonSamplingPolicyParams(4))
+          sc.contextualBandit(convolutionOps, features, LinThompsonSamplingPolicyParams(4, 2.0))
         case Array("linear-thompson-sampling", varMultiplier) =>
           sc.contextualBandit(convolutionOps, features, LinThompsonSamplingPolicyParams(4, varMultiplier.toDouble))
         case Array("lin-ucb") =>
@@ -176,16 +177,21 @@ object ConvolveFlickrData extends Serializable with Logging {
       override def getPartition(key: Any) = key.asInstanceOf[Int]
     }).map(_._2)
 
-    val convolutionTasks = croppedImgs.flatMap {
-      case (id, img) => filters.iterator.map {
-        patches => ConvolutionTask(s"$id-filters-${patches.rows}-${patches.cols}", img, patches)
+    val convolutionTasks = croppedImgs.mapPartitionsWithIndex { case (index, it) =>
+      val rand = new Random(index)
+
+      it.map {
+        case (id, img) =>
+          val random_index = rand.nextInt(filters.length)
+          val patches = filters(random_index)
+          ConvolutionTask(s"$id-${img.metadata.xDim}-${img.metadata.yDim}-filters-${patches.rows}-${patches.cols}", img, patches)
       }
     }.cache()
 
     convolutionTasks.count()
 
     logInfo("Loaded images!")
-    if (conf.warmup) {
+    conf.warmup.foreach { warmupCount =>
       logInfo("Warming up!")
       convolutionTasks.mapPartitionsWithIndex {
         case (pid, it) =>
@@ -195,7 +201,7 @@ object ConvolveFlickrData extends Serializable with Logging {
             bandits(0)
           }
 
-          it.take(3).map { task =>
+          it.take(warmupCount).map { task =>
             features(task)
             fftConvolve(task)
             loopConvolve(task)
@@ -242,7 +248,7 @@ object ConvolveFlickrData extends Serializable with Logging {
       policy: String = "",
       communicationRate: String = "5s",
       disableMulticore: Boolean = false,
-      warmup: Boolean = false,
+      warmup: Option[Int] = None,
       numParts: Int = 64)
 
   def parse(args: Array[String]): RandomCifarConfig = new OptionParser[RandomCifarConfig](appName) {
@@ -257,7 +263,7 @@ object ConvolveFlickrData extends Serializable with Logging {
     opt[String]("crops") action { (x,c) => c.copy(crops=x) }
     opt[String]("communicationRate") action { (x,c) => c.copy(communicationRate=x) }
     opt[Unit]("disableMulticore") action { (x,c) => c.copy(disableMulticore=true) }
-    opt[Unit]("warmup") action { (x,c) => c.copy(warmup=true) }
+    opt[Int]("warmup") action { (x,c) => c.copy(warmup=Some(x)) }
     opt[Int]("numParts") action { (x,c) => c.copy(numParts=x) }
   }.parse(args, RandomCifarConfig()).get
 
