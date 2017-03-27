@@ -1,3 +1,3 @@
 #!/bin/bash
 
-flintrock destroy bandits-cluster
+echo 'y' | flintrock destroy bandits-cluster

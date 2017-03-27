@@ -15,7 +15,14 @@ parallelExecution in Test := false
 libraryDependencies ++= Seq(
   "org.slf4j" % "slf4j-api" % "1.7.2",
   "org.slf4j" % "slf4j-log4j12" % "1.7.2",
-  "org.scalatest" %% "scalatest" % "1.9.1" % "test"
+  "org.scalatest" %% "scalatest" % "1.9.1" % "test",
+  "org.jsoup" % "jsoup" % "1.8.3",
+  "com.google.code.gson" % "gson" % "2.8.0",
+  "com.fasterxml.jackson.core" % "jackson-core" % "2.8.7",
+  "com.googlecode.json-simple" % "json-simple" % "1.1.1",
+  // These next to are for jsonp
+  "javax.json" % "javax.json-api" % "1.0",
+  "org.glassfish" % "javax.json" % "1.0.4"
 )
 
 {
