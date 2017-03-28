@@ -20,9 +20,18 @@ libraryDependencies ++= Seq(
   "com.google.code.gson" % "gson" % "2.8.0",
   "com.fasterxml.jackson.core" % "jackson-core" % "2.8.7",
   "com.googlecode.json-simple" % "json-simple" % "1.1.1",
-  // These next to are for jsonp
+  // These next two are for jsonp
   "javax.json" % "javax.json-api" % "1.0",
-  "org.glassfish" % "javax.json" % "1.0.4"
+  "org.glassfish" % "javax.json" % "1.0.4",
+  // The following are for regex
+  "dk.brics.automaton" % "automaton" % "1.11-8",
+  "jakarta-regexp" % "jakarta-regexp" % "1.4",
+  "com.stevesoft.pat" % "pat" % "1.5.3",
+  "net.sourceforge.jregex" % "jregex" % "1.2_01",
+  "oro" % "oro" % "2.0.8",
+  "gnu-regexp" % "gnu-regexp" % "1.1.4",
+  "jrexx" % "jrexx" % "1.1.1",
+  "com.basistech.tclre" % "tcl-regex" % "0.13.6"
 )
 
 {

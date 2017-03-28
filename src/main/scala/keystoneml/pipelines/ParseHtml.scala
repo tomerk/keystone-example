@@ -35,21 +35,29 @@ object ParseHtml extends Serializable with Logging {
   def run(sc: SparkContext, conf: PipelineConfig): Pipeline[Image, Image] = {
     //Set up some constants.
 
-    val hrefs = "href\\s*=\\s*\"(.*)\"".r // the pattern to search for
-    val tag = "a"
-    val HTML_TAG_PATTERN: String = s"<$tag([^>]+)>(.*)</$tag>"
-    val HTML_A_HREF_TAG_PATTERN: String =
-    "\\s*(?i)href\\s*=\\s*(\"([^\"]*\")|'[^']*'|([^'\">\\s]+))"
+    val html = Jsoup.connect("https://www.reddit.com/r/news").userAgent("jsoupbot/1.0").timeout(0).get().html()
 
-    val html = Jsoup.connect("https://www.google.com/").userAgent("jsoupbot/1.0").timeout(0).get().html()
+    val tag = "a"
+    val attr = "href"
+
+    // Note we can't reliably match what is inside the tag like below because regex can't capture context-free html grammars
+    //val HTML_TAG_PATTERN: String = s"<$tag[^>]+$attr\\s*=\\s*()[^>]*>(.*)</$tag>"
+    val HTML_TAG_PATTERN = (s"<($tag)\\s(?:[^>]+\\s)?$attr" + "\\s*=\\s*(\"[^\"]*\"|'[^']*')[^>]*>").r
+    val HTML_TAG_NO_ATTR_PATTERN = s"<($tag)(\\s[^>]*)?>".r
     val start = System.currentTimeMillis()
-    val doc = Jsoup.parse(html)
-    val links = doc.select("a[href]")//.asScala.map(_.attr("href"))
-    //val links = hrefs.findAllMatchIn(html).map(_.group(0)).toArray
+
+    val links = HTML_TAG_NO_ATTR_PATTERN.findAllMatchIn(html).map(_.group(0)).toBuffer
+    //val links2 = (s"<span[^>]+id" + "\\s*=\\s*(\"[^\"]*\"|'[^']*')[^>]*>").r.findAllMatchIn(html).map(_.group(1)).toBuffer
+
+    /*val doc = Jsoup.parse(html)
+    val links = doc.select(s"$tag[$attr]").iterator().asScala.map(_.attr(attr)).toBuffer
+    val links2 = doc.select(s"span[id]").iterator().asScala.map(_.attr("id")).toBuffer*/
 
     val end = System.currentTimeMillis()
 
     val time = (end - start).toDouble
+    logInfo(time.toString)
+    logInfo(links.length.toString)
     //abs:href uses StringUtil.resolve(baseUri, attr(attributeKey));
     Identity[Image]().toPipeline
   }
