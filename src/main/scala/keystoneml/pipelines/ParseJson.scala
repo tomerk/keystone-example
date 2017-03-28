@@ -3,6 +3,7 @@ package keystoneml.pipelines
 import java.io.StringReader
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.gson.JsonStreamParser
 import keystoneml.utils.Image
 import keystoneml.workflow.{Identity, Pipeline}
 import org.apache.spark.{SparkConf, SparkContext}
@@ -12,7 +13,7 @@ import scopt.OptionParser
 
 case class JsonPath(path: Seq[Either[String, Int]])
 object JsonPath {
-  def apply(name: Boolean, path: Any*): JsonPath = {
+  def at(path: Any*): JsonPath = {
     val eitherPath: Seq[Either[String, Int]] = path.map {
       case index: Int => Right(index)
       case field: String => Left(field)
@@ -23,29 +24,26 @@ object JsonPath {
 }
 
 /**
- * TODO: When writing the paper note that oftentimes it is bad to use regex for HTML and it can be prone to
- * vulnerabilities, but link to discussions about how it can still be okay
- *
- * followup of how that went wrong:
- * https://blog.codinghorror.com/protecting-your-cookies-httponly/
- * http://www.25hoursaday.com/weblog/2008/08/31/DevelopersUsingLibrariesIsNotASignOfWeakness.aspx
+* json libraries sourced from http://blog.takipi.com/the-ultimate-json-library-json-simple-vs-gson-vs-jackson-vs-json/
  */
 object ParseJson extends Serializable with Logging {
   lazy val gsonParser = new com.google.gson.JsonParser()
   lazy val jacksonMapper = new ObjectMapper
 
-  def jsonpParse(data: String, fields: Seq[JsonPath]): Seq[Option[String]] = {
-    val json = javax.json.Json.createReader(new StringReader(data)).read()
-    fields.map(path => {
-      var node: javax.json.JsonValue = json
+  def jsonSimpleParse(data: String, fields: Seq[JsonPath]): Seq[Option[String]] = {
+    // The json simple parser is not even close to thread-safe!
+    val json = org.json.simple.JSONValue.parse(data)
+
+    fields.map(path => try {
+      var node: Any = json
       path.path.foreach {
         case Left(fieldName) =>
           if (node != null) {
-            node = node.asInstanceOf[javax.json.JsonObject].get(fieldName)
+            node = node.asInstanceOf[org.json.simple.JSONObject].get(fieldName)
           }
         case Right(index) =>
           if (node != null) {
-            node = node.asInstanceOf[javax.json.JsonArray].get(index)
+            node = node.asInstanceOf[org.json.simple.JSONArray].get(index)
           }
       }
       if (node != null) {
@@ -53,6 +51,35 @@ object ParseJson extends Serializable with Logging {
       } else {
         None
       }
+    } catch {
+      case _: IndexOutOfBoundsException => None
+    })
+  }
+
+  def jsonpParse(data: String, fields: Seq[JsonPath]): Seq[Option[String]] = {
+    val parser = javax.json.Json.createReader(new StringReader(data))
+    val json = parser.read()
+    parser.close()
+
+    fields.map(path => try {
+      var node: javax.json.JsonValue = json
+      path.path.foreach {
+        case Left(fieldName) =>
+          if (node != javax.json.JsonValue.NULL) {
+            node = node.asInstanceOf[javax.json.JsonObject].get(fieldName)
+          }
+        case Right(index) =>
+          if (node != javax.json.JsonValue.NULL) {
+            node = node.asInstanceOf[javax.json.JsonArray].get(index)
+          }
+      }
+      if (node != javax.json.JsonValue.NULL) {
+        Some(node.toString)
+      } else {
+        None
+      }
+    } catch {
+      case _: IndexOutOfBoundsException => None
     })
   }
 
@@ -74,7 +101,7 @@ object ParseJson extends Serializable with Logging {
 
   def gsonParse(data: String, fields: Seq[JsonPath]): Seq[Option[String]] = {
     val json = gsonParser.parse(data)
-    fields.map(path => {
+    fields.map(path => try {
       var node = json
       path.path.foreach {
         case Left(fieldName) =>
@@ -91,20 +118,22 @@ object ParseJson extends Serializable with Logging {
       } else {
         None
       }
+    } catch {
+      case _: IndexOutOfBoundsException => None
     })
   }
-
-
 
   val appName = "ParseJson"
 
   def run(sc: SparkContext, conf: PipelineConfig): Pipeline[Image, Image] = {
     val data = sc.textFile(conf.trainLocation, 16).repartition(16).cache()
-    data.count()
+    val num = data.count()
+    logInfo(s"$num")
 
-    val fields = Seq(JsonPath(true, "categories", 0))
-    val out = data.map(json => jsonpParse(json, fields)).collect()
-    //abs:href uses StringUtil.resolve(baseUri, attr(attributeKey));
+    val fields = Seq(JsonPath.at("date"))
+    val out = data.map(json => jacksonParse(json, fields)).collect()
+
+    logInfo("Finished.")
     Identity[Image]().toPipeline
   }
 
