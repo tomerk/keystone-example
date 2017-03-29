@@ -65,15 +65,15 @@ object ParseJson extends Serializable with Logging {
       var node: javax.json.JsonValue = json
       path.path.foreach {
         case Left(fieldName) =>
-          if (node != javax.json.JsonValue.NULL) {
+          if (node != null && node != javax.json.JsonValue.NULL) {
             node = node.asInstanceOf[javax.json.JsonObject].get(fieldName)
           }
         case Right(index) =>
-          if (node != javax.json.JsonValue.NULL) {
+          if (node != null && node != javax.json.JsonValue.NULL) {
             node = node.asInstanceOf[javax.json.JsonArray].get(index)
           }
       }
-      if (node != javax.json.JsonValue.NULL) {
+      if (node != null && node != javax.json.JsonValue.NULL) {
         Some(node.toString)
       } else {
         None
