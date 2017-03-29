@@ -3,6 +3,7 @@ package net.greypanther.javaadvent.regex.factories;
 import net.greypanther.javaadvent.regex.Regex;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 
 public final class ComStevesoftPatRegexFactory extends RegexFactory {
 
@@ -21,7 +22,7 @@ public final class ComStevesoftPatRegexFactory extends RegexFactory {
             }
 
             @Override
-            public Iterable<String[]> getMatches(String string, int[] groups) {
+            public Iterator<String[]> getMatches(String string, int[] groups) {
                 throw new UnsupportedOperationException();
             }
         };

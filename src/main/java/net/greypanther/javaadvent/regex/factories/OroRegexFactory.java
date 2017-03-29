@@ -7,6 +7,7 @@ import org.apache.oro.text.regex.MatchResult;
 import org.apache.oro.text.regex.PatternMatcherInput;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 
 import static org.apache.oro.text.regex.Perl5Compiler.SINGLELINE_MASK;
 
@@ -30,21 +31,30 @@ public final class OroRegexFactory extends RegexFactory {
             }
 
             @Override
-            public Iterable<String[]> getMatches(String string, int[] groups) {
+            public Iterator<String[]> getMatches(String string, int[] groups) {
                 int numGroups = groups.length;
-                ArrayList<String[]> matches = new ArrayList<>();
                 PatternMatcherInput input = new PatternMatcherInput(string);
-                while(perl5Matcher.contains(input, regexpr)) {
-                    MatchResult result = perl5Matcher.getMatch();
+                return new Iterator<String[]>() {
+                    private boolean hasNextBool = perl5Matcher.contains(input, regexpr);
 
-                    String[] matchArray = new String[numGroups];
-                    for (int i = 0; i < numGroups; i++) {
-                        matchArray[i] = result.group(groups[i]);
+                    @Override
+                    public boolean hasNext() {
+                        return hasNextBool;
                     }
-                    matches.add(matchArray);
-                }
 
-                return matches;
+                    @Override
+                    public String[] next() {
+                        MatchResult result = perl5Matcher.getMatch();
+
+                        String[] matchArray = new String[numGroups];
+                        for (int i = 0; i < numGroups; i++) {
+                            matchArray[i] = result.group(groups[i]);
+                        }
+                        hasNextBool = perl5Matcher.contains(input, regexpr);
+                        return matchArray;
+                    }
+                };
+
             }
         };
     }

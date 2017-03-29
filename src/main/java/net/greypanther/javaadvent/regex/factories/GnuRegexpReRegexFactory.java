@@ -5,6 +5,7 @@ import gnu.regexp.REMatch;
 import net.greypanther.javaadvent.regex.Regex;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 
 import static gnu.regexp.RE.REG_DOT_NEWLINE;
 
@@ -26,7 +27,7 @@ public final class GnuRegexpReRegexFactory extends RegexFactory {
             }
 
             @Override
-            public Iterable<String[]> getMatches(String string, int[] groups) {
+            public Iterator<String[]> getMatches(String string, int[] groups) {
                 throw new UnsupportedOperationException();
             }
         };

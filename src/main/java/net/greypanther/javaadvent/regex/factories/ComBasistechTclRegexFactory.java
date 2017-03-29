@@ -5,6 +5,7 @@ import com.basistech.tclre.*;
 import net.greypanther.javaadvent.regex.Regex;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 
 public final class ComBasistechTclRegexFactory extends RegexFactory {
 
@@ -23,20 +24,28 @@ public final class ComBasistechTclRegexFactory extends RegexFactory {
             }
 
             @Override
-            public Iterable<String[]> getMatches(String string, int[] groups) {
+            public Iterator<String[]> getMatches(String string, int[] groups) {
                 int numGroups = groups.length;
                 ReMatcher matcher = r.matcher(string);
-                ArrayList<String[]> matches = new ArrayList<>();
-                while (matcher.find()) {
-                    String[] matchArray = new String[numGroups];
-                    for (int i = 0; i < numGroups; i++) {
-                        matchArray[i] = matcher.group(groups[i]);
+
+                return new Iterator<String[]>() {
+                    private boolean hasNextBool = matcher.find();
+
+                    @Override
+                    public boolean hasNext() {
+                        return hasNextBool;
                     }
-                    matches.add(matchArray);
-                }
 
-                return matches;
-
+                    @Override
+                    public String[] next() {
+                        String[] matchArray = new String[numGroups];
+                        for (int i = 0; i < numGroups; i++) {
+                            matchArray[i] = matcher.group(groups[i]);
+                        }
+                        hasNextBool = matcher.find();
+                        return matchArray;
+                    }
+                };
             }
         };
     }

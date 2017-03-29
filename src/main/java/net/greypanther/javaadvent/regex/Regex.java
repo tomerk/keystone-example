@@ -1,6 +1,8 @@
 package net.greypanther.javaadvent.regex;
 
+import java.util.Iterator;
+
 public interface Regex {
     boolean containsMatch(String string);
-    Iterable<String[]> getMatches(String string, int[] groups);
+    Iterator<String[]> getMatches(String string, int[] groups);
 }

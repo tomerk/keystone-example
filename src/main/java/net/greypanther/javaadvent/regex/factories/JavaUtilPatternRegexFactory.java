@@ -1,6 +1,7 @@
 package net.greypanther.javaadvent.regex.factories;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -18,19 +19,28 @@ public final class JavaUtilPatternRegexFactory extends RegexFactory {
             }
 
             @Override
-            public Iterable<String[]> getMatches(String string, int[] groups) {
+            public Iterator<String[]> getMatches(String string, int[] groups) {
                 int numGroups = groups.length;
                 Matcher matcher = rx.matcher(string);
-                ArrayList<String[]> matches = new ArrayList<>();
-                while (matcher.find()) {
-                    String[] matchArray = new String[numGroups];
-                    for (int i = 0; i < numGroups; i++) {
-                        matchArray[i] = matcher.group(groups[i]);
-                    }
-                    matches.add(matchArray);
-                }
+                return new Iterator<String[]>() {
+                    private boolean hasNextBool = matcher.find();
 
-                return matches;
+                    @Override
+                    public boolean hasNext() {
+                        return hasNextBool;
+                    }
+
+                    @Override
+                    public String[] next() {
+                        String[] matchArray = new String[numGroups];
+                        for (int i = 0; i < numGroups; i++) {
+                            matchArray[i] = matcher.group(groups[i]);
+                        }
+                        hasNextBool = matcher.find();
+                        return matchArray;
+                    }
+                };
+
             }
         };
     }
