@@ -31,7 +31,9 @@ libraryDependencies ++= Seq(
   "oro" % "oro" % "2.0.8",
   "gnu-regexp" % "gnu-regexp" % "1.1.4",
   "jrexx" % "jrexx" % "1.1.1",
-  "com.basistech.tclre" % "tcl-regex" % "0.13.6"
+  "com.basistech.tclre" % "tcl-regex" % "0.13.6",
+  // To load common crawl warc data
+  "org.jwat" % "jwat-warc" % "1.0.5"
 )
 
 {

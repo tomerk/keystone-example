@@ -105,15 +105,15 @@ object ParseJson extends Serializable with Logging {
       var node = json
       path.path.foreach {
         case Left(fieldName) =>
-          if (!node.isJsonNull) {
+          if (node != null && !node.isJsonNull) {
             node = node.getAsJsonObject.get(fieldName)
           }
         case Right(index) =>
-          if (!node.isJsonNull) {
+          if (node != null && !node.isJsonNull) {
             node = node.getAsJsonArray.get(index)
           }
       }
-      if (!node.isJsonNull) {
+      if (node != null && !node.isJsonNull) {
         Some(node.getAsString)
       } else {
         None
@@ -126,14 +126,17 @@ object ParseJson extends Serializable with Logging {
   val appName = "ParseJson"
 
   def run(sc: SparkContext, conf: PipelineConfig): Pipeline[Image, Image] = {
-    val data = sc.textFile(conf.trainLocation, 16).repartition(16).cache()
+    val data = sc.wholeTextFiles(conf.trainLocation, 16).map(_._2).repartition(16).cache()
     val num = data.count()
     logInfo(s"$num")
 
-    val fields = Seq(JsonPath.at("date"))
-    val out = data.map(json => jacksonParse(json, fields)).collect()
-
-    logInfo("Finished.")
+    val fields = Seq(JsonPath.at("type"))
+    val json = data.first()
+    val start = System.nanoTime()
+    //val out = data.map(json => jsonSimpleParse(json, fields)).collect()
+    jacksonParse(json, fields)
+    val end = System.nanoTime()
+    logInfo(s"Finished. ${end - start}")
     Identity[Image]().toPipeline
   }
 

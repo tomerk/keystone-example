@@ -6,7 +6,7 @@ import java.util.Random
 import java.util.regex.Pattern
 
 import breeze.linalg._
-import keystoneml.loaders.FlickrLoader
+import keystoneml.loaders.{CommonCrawlLoader, FlickrLoader}
 import keystoneml.nodes.images.Convolver
 import keystoneml.nodes.{FFTConvolver, LoopConvolver}
 import keystoneml.utils.{Image, ImageUtils}
@@ -35,9 +35,11 @@ object ParseHtml extends Serializable with Logging {
   def run(sc: SparkContext, conf: PipelineConfig): Pipeline[Image, Image] = {
     //Set up some constants.
 
-    val html = Jsoup.connect("https://www.reddit.com/r/news").userAgent("jsoupbot/1.0").timeout(0).get().html()
+    val commoncrawl = CommonCrawlLoader(sc, "/Users/tomerk11/Desktop/commoncrawl").repartition(4).cache()
+    logInfo(commoncrawl.count().toString)
+    val html = commoncrawl.take(30)(16)//Jsoup.connect("https://www.reddit.com/r/news").userAgent("jsoupbot/1.0").timeout(0).get().html()
 
-    val tag = "a"
+    val tag = "[^/][^>\\s]*"
     val attr = "href"
 
     // Note we can't reliably match what is inside the tag like below because regex can't capture context-free html grammars
@@ -49,9 +51,9 @@ object ParseHtml extends Serializable with Logging {
     val links = HTML_TAG_NO_ATTR_PATTERN.findAllMatchIn(html).map(_.group(0)).toBuffer
     //val links2 = (s"<span[^>]+id" + "\\s*=\\s*(\"[^\"]*\"|'[^']*')[^>]*>").r.findAllMatchIn(html).map(_.group(1)).toBuffer
 
-    /*val doc = Jsoup.parse(html)
-    val links = doc.select(s"$tag[$attr]").iterator().asScala.map(_.attr(attr)).toBuffer
-    val links2 = doc.select(s"span[id]").iterator().asScala.map(_.attr("id")).toBuffer*/
+    //val doc = Jsoup.parse(html)
+    //val links = doc.select(s"$tag[$attr]").iterator().asScala.map(_.attr(attr)).toBuffer
+    //val links = doc.select(s"h1").iterator().asScala.map(_.tag()).toBuffer
 
     val end = System.currentTimeMillis()
 
