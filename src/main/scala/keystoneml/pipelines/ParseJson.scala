@@ -25,6 +25,11 @@ object JsonPath {
 
 /**
 * json libraries sourced from http://blog.takipi.com/the-ultimate-json-library-json-simple-vs-gson-vs-jackson-vs-json/
+ *
+ * For a convincing, nontrivial benchmark need multiple json objects on the order of 100's to 1000's of megabytes,
+ * Otherwise trivially fast for gigabytes of data. E.g. one 350 mb json object I took from data.gov takes only
+ * 10-40 seconds or so to parse depending on the library and random variation.
+ * Tiny json objects are trivially fast.
  */
 object ParseJson extends Serializable with Logging {
   lazy val gsonParser = new com.google.gson.JsonParser()
@@ -134,7 +139,7 @@ object ParseJson extends Serializable with Logging {
     val json = data.first()
     val start = System.nanoTime()
     //val out = data.map(json => jsonSimpleParse(json, fields)).collect()
-    jacksonParse(json, fields)
+    gsonParse(json, fields)
     val end = System.nanoTime()
     logInfo(s"Finished. ${end - start}")
     Identity[Image]().toPipeline
