@@ -9,7 +9,7 @@ declare -a WARMUP_SETTINGS=("--warmup 5")
 PATCH_SETTINGS="5,3 5,3:5,20:8,30:24,5:25,1"
 CROP_SETTINGS="0,0,0.5,0.5:0,0.5,0.5,1.0:0.5,0,1,0.5:0.5,0.5,1,1"
 CONSTANT_POLICIES="constant:0 constant:1 constant:2"
-ORACLE_POLICIES="oracle:min:oracle_data.csv"
+ORACLE_POLICIES="oracle:min"
 DYNAMIC_POLICIES="kernel-linear-thompson-sampling lin-ucb" #kernel-lin-ucb epsilon-greedy gaussian-thompson-sampling pseudo-ucb linear-thompson-sampling lin-ucb"
 
 # Execute the trials
@@ -40,6 +40,10 @@ KEYSTONE_MEM=$KEYSTONE_MEM ./bin/run-pipeline.sh \
         done
 
         CONSTANT_GLOM="constant:*-$PATCH_SETTING-$CROP_SETTING.csv"
+        flintrock run-command --master-only bandits-cluster "
+cd keystone-example
+cat $CONSTANT_GLOM > oracle_data.csv
+"
         for POLICY in $ORACLE_POLICIES
         do
             OUT_CSV="$POLICY-$PATCH_SETTING-$CROP_SETTING.csv"
@@ -52,7 +56,7 @@ KEYSTONE_MEM=$KEYSTONE_MEM ./bin/run-pipeline.sh \
   --patchesLocation patches \
   --outputLocation $OUT_CSV \
   --labelLocation flickr_file_shuffled_indexmap.out \
-  --policy $POLICY:$ORACLE_DATA_PATH \
+  --policy $POLICY:oracle_data.csv \
   --patches $PATCH_SETTING \
   --crops $CROP_SETTING \
   --numParts $NUM_PARTS --warmup 5
@@ -62,7 +66,6 @@ KEYSTONE_MEM=$KEYSTONE_MEM ./bin/run-pipeline.sh \
             flintrock run-command bandits-cluster "rm spark/work/*/*/*.jar" > /dev/null
         done
 
-        flintrock run-command --master-only bandits-cluster "cat $CONSTANT_GLOM > $ORACLE_DATA_CSV"
         for DISTRIBUTED_SETTING_INDEX in "${!DISTRIBUTED_SETTINGS[@]}"
         do
             for WARMUP_INDEX in "${!WARMUP_SETTINGS[@]}"

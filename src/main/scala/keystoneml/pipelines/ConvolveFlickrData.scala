@@ -128,7 +128,8 @@ object ConvolveFlickrData extends Serializable with Logging {
       // For each convolution id, group + sum the rewards by arm
       .mapValues(_.groupBy(_.arm).mapValues(_.map(_.reward).sum))
 
-    val bestArms = armRewards.mapValues(_.maxBy(_._2)._1)
+    // we need a map identity here because a mapValues bug means this isn't serializable
+    val bestArms = armRewards.mapValues(_.maxBy(_._2)._1).map(identity)
 
     val oracle: ConvolutionTask => Int = task => bestArms(task.id)
     oracle
