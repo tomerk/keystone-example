@@ -16,7 +16,6 @@ import org.apache.spark.bandit.{Action, BanditTrait}
 import org.apache.spark.bandit.policies._
 import org.apache.spark.{Partitioner, SparkConf, SparkContext}
 import org.jsoup.Jsoup
-import org.w3c.tidy.Tidy
 import scopt.OptionParser
 
 import scala.collection.JavaConverters._
