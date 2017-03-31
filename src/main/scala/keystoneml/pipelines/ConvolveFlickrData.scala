@@ -14,6 +14,8 @@ import org.apache.spark.bandit.policies._
 import org.apache.spark.{Partitioner, SparkConf, SparkContext}
 import scopt.OptionParser
 
+import scala.io.Source
+
 case class Crop(startX: Double, startY: Double, endX: Double, endY: Double)
 
 case class Filters(patchSize: Int, numFilters: Int)
@@ -33,6 +35,48 @@ class ConstantBandit[A, B](arm: Int, func: A => B) extends BanditTrait[A, B] {
   }
 
   override def vectorizedApply(in: Seq[A]): Seq[B] = in.map(func)
+}
+
+class OracleBandit[A, B](oracle: A => Int, funcs: Seq[A => B]) extends BanditTrait[A, B] {
+  override def apply(in: A): B = funcs(oracle(in)).apply(in)
+
+  override def applyAndOutputReward(in: A): (B, Action) = {
+    val arm = oracle(in)
+    val startTime = System.nanoTime()
+    val result = funcs(arm).apply(in)
+    val endTime = System.nanoTime()
+
+    // Intentionally provide -1 * elapsed time as the reward, so it's better to be faster
+    val reward: Double = startTime - endTime
+
+    (result, Action(arm, reward))
+  }
+
+  override def vectorizedApply(in: Seq[A]): Seq[B] = in.map(apply)
+}
+
+case class ConvolveRecord(partitionId: Int,
+                          posInPartition: Int,
+                          canonicalTupleId: String,
+                          imgXDim: Int,
+                          imgYDim: Int,
+                          filterRows: Int,
+                          filterCols: Int,
+                          reward: Double,
+                          arm: Int)
+object DebugCholesky extends Serializable with Logging {
+  def kernelFeatures(record: ConvolveRecord): DenseVector[Double] = {
+    DenseVector(
+      //record.imgXDim,
+      //record.imgYDim,
+      record.imgXDim * record.imgYDim,
+      //record.filterCols,
+      //record.filterRows,
+      //record.imgXDim * record.imgYDim *
+       // (math.log(record.imgXDim) + math.log(record.imgYDim)), // fft
+      record.imgXDim * record.imgYDim * record.filterCols * record.filterRows // matrix multiply
+    )
+  }
 }
 
 case class ConvolutionTask(id: String,
@@ -62,6 +106,33 @@ object ConvolveFlickrData extends Serializable with Logging {
     )
   }
 
+  def minOracle(path: String): ConvolutionTask => Int = {
+    val records = Source.fromFile(path).getLines.filter(x => !x.startsWith("partition_id")).map {
+      line =>
+        val splitLine = line.split(',')
+        ConvolveRecord(
+          partitionId = splitLine(0).toInt,
+          posInPartition = splitLine(1).toInt,
+          canonicalTupleId = splitLine(2),
+          imgXDim = splitLine(3).toInt,
+          imgYDim = splitLine(4).toInt,
+          filterRows = splitLine(5).toInt,
+          filterCols = splitLine(6).toInt,
+          reward = splitLine(10).toDouble,
+          arm = splitLine(9).toInt)
+    }.toSeq
+
+    val armRewards =
+      // Group by convolution id
+      records.groupBy(_.canonicalTupleId)
+      // For each convolution id, group + sum the rewards by arm
+      .mapValues(_.groupBy(_.arm).mapValues(_.map(_.reward).sum))
+
+    val bestArms = armRewards.mapValues(_.maxBy(_._2)._1)
+
+    val oracle: ConvolutionTask => Int = task => bestArms(task.id)
+    oracle
+  }
 
   def matMultConvolve(task: ConvolutionTask): Image = {
     val imgInfo = task.image.metadata
@@ -111,6 +182,10 @@ object ConvolveFlickrData extends Serializable with Logging {
         // Constant Policies
         case Array("constant", arm) =>
           new ConstantBandit(arm.toInt, convolutionOps(arm.toInt))
+
+        // Oracle Policies
+        case Array("oracle", "min", path) =>
+          new OracleBandit(minOracle(path), convolutionOps)
 
         // Non-contextual policies
         case Array("epsilon-greedy") =>
@@ -162,20 +237,24 @@ object ConvolveFlickrData extends Serializable with Logging {
 
     val imgs = FlickrLoader(sc, conf.trainLocation, conf.labelLocation)
     val croppedImgs = imgs.flatMap{
-      case (id, img) => crops.iterator.map {
-        case Crop(0, 0, 1, 1) => (id.toInt % conf.numParts, (id, img))
-        case Crop(startX, startY, endX, endY) =>
-          (id.toInt % conf.numParts, (s"$id-cropped-$startX-$startY-$endX-$endY", ImageUtils.crop(
+      case (id, img) => crops.iterator.zipWithIndex.map {
+        case (Crop(0, 0, 1, 1), cropIndex) =>
+          ((id.toInt, cropIndex), img)
+        case (Crop(startX, startY, endX, endY), cropIndex) =>
+          ((id.toInt, cropIndex), ImageUtils.crop(
             img,
             (img.metadata.xDim * startX).toInt,
             (img.metadata.yDim * startY).toInt,
             (img.metadata.xDim * endX).toInt,
             (img.metadata.yDim * endY).toInt
-          )))
-    }}.partitionBy(new Partitioner {
+          ))
+    }}.repartitionAndSortWithinPartitions(new Partitioner {
       override def numPartitions = conf.numParts
-      override def getPartition(key: Any) = key.asInstanceOf[Int]
-    }).map(_._2)
+      override def getPartition(key: Any) = {
+        val id = key.asInstanceOf[(Int, Int)]
+        (id._1 + id._2) % conf.numParts
+      }
+    })
 
     val convolutionTasks = croppedImgs.mapPartitionsWithIndex { case (index, it) =>
       val rand = new Random(index)
@@ -184,7 +263,7 @@ object ConvolveFlickrData extends Serializable with Logging {
         case (id, img) =>
           val random_index = rand.nextInt(filters.length)
           val patches = filters(random_index)
-          ConvolutionTask(id, img, patches)
+          ConvolutionTask(s"${id._1}_${id._2}", img, patches)
       }
     }.cache()
 
