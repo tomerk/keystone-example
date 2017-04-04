@@ -5,6 +5,7 @@ import java.io._
 import keystoneml.loaders.CommonCrawlLoader
 import keystoneml.utils.Image
 import keystoneml.workflow.{Identity, Pipeline}
+import net.greypanther.javaadvent.regex.Regex
 import net.greypanther.javaadvent.regex.factories._
 import org.apache.spark.{SparkConf, SparkContext}
 import org.jsoup.Jsoup
@@ -12,18 +13,21 @@ import scopt.OptionParser
 
 import scala.collection.JavaConverters._
 
+case class RegexTask(doc: String, regexOptions: Seq[Regex]) {
+  def getMatches(arm: Int): Array[String] = regexOptions(arm).getMatches(doc, Array(0)).asScala.map(_.head).toArray
+}
 
 /**
- * Extract regex from project gutenberg files
+ * Extract regex from common crawl files
  */
 object CommonCrawlRegex extends Serializable with Logging {
 
-  val appName = "GutenbergRegex"
+  val appName = "CommonCrawlRegex"
 
   def run(sc: SparkContext, conf: PipelineConfig): Pipeline[Image, Image] = {
     //Set up some constants.
 
-    val commoncrawl = CommonCrawlLoader(sc, "/Users/tomerk11/Desktop/commoncrawl").sample(false,0.25, seed = 0).repartition(32).cache()
+    val commoncrawl = CommonCrawlLoader(sc, conf.trainLocation).repartition(conf.numParts).cache()
     val numDocs = commoncrawl.count()
     logInfo(s"loaded $numDocs docs")
 
@@ -39,7 +43,7 @@ object CommonCrawlRegex extends Serializable with Logging {
     //val regexp = "([A-Za-z]+\\s+[A-Za-z]+)" // Match some bigrams
     //val regexp = "([A-Za-z]+%)" // Match all words
     //val regexp = "([A-Za-z]+ed)[ \t\n\r]+([A-Za-z]+[A-Da-dF-Zf-z][A-Ca-cE-Ze-z][ \t\n\r]+)*(John|Alice|Jane|James|Walter|Lord|George|Jackal|returned|angel|ornament|ripped|riposte)[ \t\n\r]+"
-    // This is an insane stack-overflowing regex (that doesn't work right with DKbrics) for email I found online: http://emailregex.com
+    // This is an insane stack-overflowing regex (that doesn't work right with DKbrics anyway) for email I found online: http://emailregex.com
     //val regexp = "(?:[a-z0-9!#$%&'*+/=?^_`~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`~-]+)*|\"(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])*\")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])"
     val regexp = URL_REGEX_PATTERN
     // TODO WARNME: REGEXES may not be threadsafe
@@ -58,7 +62,7 @@ object CommonCrawlRegex extends Serializable with Logging {
       val startedTime = System.currentTimeMillis()
 
       val matcher = factory().create(regexp)
-      val matches = matcher.getMatches(doc, Array(0))
+      val matches = matcher.getMatches(doc._2, Array(0))
 
       val endTime = System.currentTimeMillis()
       logInfo(s"Finished $libName in ${endTime - startedTime} ms")
@@ -73,7 +77,7 @@ object CommonCrawlRegex extends Serializable with Logging {
       val numMatches = commoncrawl.mapPartitions(it => {
         val matcher = factory().create(regexp)
         it.map { doc =>
-          val text = doc//Jsoup.parse(doc).text()
+          val text = doc._2//Jsoup.parse(doc).text()
           matcher.getMatches(text, Array(0)).asScala.size
         }
       }).sum()

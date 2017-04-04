@@ -4,6 +4,7 @@ import java.io.{BufferedWriter, File, FileOutputStream, OutputStreamWriter}
 import java.util.Random
 
 import breeze.linalg._
+import keystoneml.bandits.{ConstantBandit, OracleBandit}
 import keystoneml.loaders.FlickrLoader
 import keystoneml.nodes.images.Convolver
 import keystoneml.nodes.{FFTConvolver, LoopConvolver}
@@ -19,41 +20,6 @@ import scala.io.Source
 case class Crop(startX: Double, startY: Double, endX: Double, endY: Double)
 
 case class Filters(patchSize: Int, numFilters: Int)
-
-class ConstantBandit[A, B](arm: Int, func: A => B) extends BanditTrait[A, B] {
-  override def apply(in: A): B = func(in)
-
-  override def applyAndOutputReward(in: A): (B, Action) = {
-    val startTime = System.nanoTime()
-    val result = func(in)
-    val endTime = System.nanoTime()
-
-    // Intentionally provide -1 * elapsed time as the reward, so it's better to be faster
-    val reward: Double = startTime - endTime
-
-    (result, Action(arm, reward))
-  }
-
-  override def vectorizedApply(in: Seq[A]): Seq[B] = in.map(func)
-}
-
-class OracleBandit[A, B](oracle: A => Int, funcs: Seq[A => B]) extends BanditTrait[A, B] {
-  override def apply(in: A): B = funcs(oracle(in)).apply(in)
-
-  override def applyAndOutputReward(in: A): (B, Action) = {
-    val arm = oracle(in)
-    val startTime = System.nanoTime()
-    val result = funcs(arm).apply(in)
-    val endTime = System.nanoTime()
-
-    // Intentionally provide -1 * elapsed time as the reward, so it's better to be faster
-    val reward: Double = startTime - endTime
-
-    (result, Action(arm, reward))
-  }
-
-  override def vectorizedApply(in: Seq[A]): Seq[B] = in.map(apply)
-}
 
 case class ConvolveRecord(partitionId: Int,
                           posInPartition: Int,

@@ -46,7 +46,7 @@ object ParseHtml extends Serializable with Logging {
     val numDocs = commoncrawl.count()
     logInfo(s"loaded $numDocs docs")
     val html = commoncrawl.take(30)(16)//Jsoup.connect("https://www.reddit.com/r/news").userAgent("jsoupbot/1.0").timeout(0).get().html()
-    Jsoup.parse(commoncrawl.first())
+    Jsoup.parse(commoncrawl.first()._2)
 
     val tag = "a"//"[^/][^>\\s]*"
     val attr = "href"
@@ -61,13 +61,13 @@ object ParseHtml extends Serializable with Logging {
     // The below is a really bad phone regex! Matches dates, numbers, etc.
     val PHONE_REGEX = "(?:\\+?(\\d{1,3}))?([-. (]*(\\d{3})[-. )]*)?((\\d{3})[-. ]*(\\d{2,4})(?:[-.x ]*(\\d+))?)".r
 
-    PHONE_REGEX.findAllMatchIn(commoncrawl.first()).map(_.group(0)).toBuffer
+    PHONE_REGEX.findAllMatchIn(commoncrawl.first()._2).map(_.group(0)).toBuffer
 
     val start = System.currentTimeMillis()
 
     //val links = HTML_TAG_PATTERN.findAllMatchIn(html).map(_.group(0)).toBuffer
     val numMatches = commoncrawl.map { html =>
-      val doc = Jsoup.parse(html)
+      val doc = Jsoup.parse(html._2)
       //doc.select(s"$tag[$attr]").iterator().asScala.map(_.attr(attr)).size
 
       val matches = PHONE_REGEX.findAllMatchIn(doc.text()).map(_.group(0)).toList

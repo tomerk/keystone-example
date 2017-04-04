@@ -26,7 +26,7 @@ object CommonCrawlLoader extends Logging {
    *                 that each tar file contains images within a directory. The name of the
    *                 directory is treated as the className.
    */
-  def apply(sc: SparkContext, dataPath: String): RDD[String] = {
+  def apply(sc: SparkContext, dataPath: String): RDD[(String, String)] = {
     val filePathsRDD = ImageLoaderUtils.getFilePathsRDD(sc, dataPath)
 
     val warcRDD = filePathsRDD.flatMap { fileUri =>
@@ -48,7 +48,7 @@ object CommonCrawlLoader extends Logging {
         } else {
           false
         }
-      }.map(record => new String(IOUtils.toByteArray(record.getPayload.getInputStream)))
+      }.map(record => (record.header.warcRecordIdStr, new String(IOUtils.toByteArray(record.getPayload.getInputStream))))
     }
 
     warcRDD
