@@ -10,7 +10,7 @@ PATCH_SETTINGS="5,3 5,3:5,20:8,30:24,5:25,1"
 CROP_SETTINGS="0,0,0.5,0.5:0,0.5,0.5,1.0:0.5,0,1,0.5:0.5,0.5,1,1"
 CONSTANT_POLICIES="constant:0 constant:1 constant:2"
 ORACLE_POLICIES="oracle:min"
-DYNAMIC_POLICIES="kernel-linear-thompson-sampling lin-ucb" #kernel-lin-ucb epsilon-greedy gaussian-thompson-sampling pseudo-ucb linear-thompson-sampling lin-ucb"
+DYNAMIC_POLICIES="kernel-linear-thompson-sampling lin-ucb kernel-lin-ucb linear-thompson-sampling" #epsilon-greedy gaussian-thompson-sampling pseudo-ucb linear-thompson-sampling lin-ucb"
 
 # Execute the trials
 for CROP_SETTING in $CROP_SETTINGS
@@ -35,6 +35,7 @@ KEYSTONE_MEM=$KEYSTONE_MEM ./bin/run-pipeline.sh \
   --numParts $NUM_PARTS --warmup 5
 "
             flintrock download-file bandits-cluster keystone-example/$OUT_CSV experiment-results/$OUT_CSV
+
             # Delete excessive JARs that get copied to each app and fill up disks
             flintrock run-command bandits-cluster "rm spark/work/*/*/*.jar" > /dev/null
         done
@@ -62,6 +63,7 @@ KEYSTONE_MEM=$KEYSTONE_MEM ./bin/run-pipeline.sh \
   --numParts $NUM_PARTS --warmup 5
 "
             flintrock download-file bandits-cluster keystone-example/$OUT_CSV experiment-results/$OUT_CSV
+
             # Delete excessive JARs that get copied to each app and fill up disks
             flintrock run-command bandits-cluster "rm spark/work/*/*/*.jar" > /dev/null
         done
@@ -103,7 +105,7 @@ do
     for PATCH_SETTING in $PATCH_SETTINGS
     do
         CONSTANT_GLOM="constant:*-$PATCH_SETTING-$CROP_SETTING.csv"
-        ORACLE_GLOM="oracle:*:oracle_data.csv-$PATCH_SETTING-$CROP_SETTING.csv"
+        ORACLE_GLOM="oracle:*-$PATCH_SETTING-$CROP_SETTING.csv"
         for POLICY in $CONSTANT_POLICIES
         do
             DATA_PATH="experiment-results/$POLICY-$PATCH_SETTING-$CROP_SETTING.csv"
@@ -112,7 +114,7 @@ do
             python3 scripts/gen_plot.py $DATA_PATH "experiment-results/$CONSTANT_GLOM" "experiment-results/$ORACLE_GLOM" figures/$OUTPUT_FIGURE
             OUTPUT_FIGURE="$PATCH_SETTING-$CROP_SETTING-$POLICY-rate.png"
             echo "Generating $OUTPUT_FIGURE"
-            python3 scripts/gen_rate_plot.py $DATA_PATH "experiment-results/$CONSTANT_GLOM" figures/$OUTPUT_FIGURE
+            python3 scripts/gen_rate_plot.py $DATA_PATH "experiment-results/$CONSTANT_GLOM" "experiment-results/$ORACLE_GLOM" figures/$OUTPUT_FIGURE
         done
         for DISTRIBUTED_SETTING_INDEX in "${!DISTRIBUTED_SETTINGS[@]}"
         do
@@ -126,7 +128,7 @@ do
                     python3 scripts/gen_plot.py $DATA_PATH "experiment-results/$CONSTANT_GLOM" "experiment-results/$ORACLE_GLOM" figures/$OUTPUT_FIGURE
                     OUTPUT_FIGURE="$PATCH_SETTING-$CROP_SETTING-$POLICY-WARMUP_$WARMUP_INDEX-DISTRIBUTED_$DISTRIBUTED_SETTING_INDEX-rate.png"
                     echo "Generating $OUTPUT_FIGURE"
-                    python3 scripts/gen_rate_plot.py $DATA_PATH "experiment-results/$CONSTANT_GLOM" figures/$OUTPUT_FIGURE
+                    python3 scripts/gen_rate_plot.py $DATA_PATH "experiment-results/$CONSTANT_GLOM" "experiment-results/$ORACLE_GLOM" figures/$OUTPUT_FIGURE
                 done
             done
         done

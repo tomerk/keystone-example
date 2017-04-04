@@ -7,9 +7,11 @@ import math
 
 
 constant_arms = sys.argv[2]
-output_file = sys.argv[3]
+oracles = sys.argv[3]
+output_file = sys.argv[4]
 
-policy_labels = {'constant:0': 'Convolve via Loops', 'constant:1': 'Convolve via Matrix Multiply', 'constant:2': 'Convolve via FFT'}
+policy_labels = {'constant:0': 'Convolve via Loops', 'constant:1': 'Convolve via Matrix Multiply',
+                 'constant:2': 'Convolve via FFT', 'oracle:min': 'Oracle'}
 
 ## Plot the current policy
 bandit_rewards = pd.read_csv(sys.argv[1])
@@ -24,8 +26,8 @@ max_end_time = bandit_rewards['end_time'].max()
 
 plot_every_x = 25
 df = bandit_rewards.sort_values(['pos_in_partition','partition_id'],ascending=True)
-df['time_per_tuple'] = df['system_nano_end_time'] - df['system_nano_start_time']
-df['rate'] = 1.0/(df.groupby('partition_id').rolling(plot_every_x)['time_per_tuple'].sum().reset_index(0,drop=True))
+df['time_per_tuple'] = (df['system_nano_end_time'] - df['system_nano_start_time'])/1.0e9
+df['rate'] = plot_every_x*1.0/(df.groupby('partition_id').rolling(plot_every_x)['time_per_tuple'].sum().reset_index(0,drop=True))
 df = df[df['pos_in_partition'] % plot_every_x == 0]
 sns.set_style("whitegrid")
 bandit_color = 'slategrey'
@@ -35,6 +37,11 @@ ax = sns.boxplot(x="pos_in_partition", y="rate", color=bandit_color, data=df)
 ## Plot the constant arms
 data_list = []
 for csv in glob.glob(constant_arms):
+    df = pd.read_csv(csv)
+    df['policy'] = csv
+    data_list.append(df)
+
+for csv in glob.glob(oracles):
     df = pd.read_csv(csv)
     df['policy'] = csv
     data_list.append(df)
@@ -49,8 +56,8 @@ bandit_rewards['end_time'] = (bandit_rewards['system_nano_end_time'] - bandit_re
 
 plot_every_x = 25
 df = bandit_rewards.sort_values(['pos_in_partition','partition_id'],ascending=True)
-df['time_per_tuple'] = df['system_nano_end_time'] - df['system_nano_start_time']
-df['rate'] = 1.0/(df.groupby(['partition_id', 'policy']).rolling(plot_every_x)['time_per_tuple'].sum().reset_index(0,drop=True).reset_index(0,drop=True))
+df['time_per_tuple'] = (df['system_nano_end_time'] - df['system_nano_start_time'])/1.0e9
+df['rate'] = plot_every_x*1.0/(df.groupby(['partition_id', 'policy']).rolling(plot_every_x)['time_per_tuple'].sum().reset_index(0,drop=True).reset_index(0,drop=True))
 df = df[df['pos_in_partition'] % plot_every_x == 0]
 sns.pointplot(x="pos_in_partition", y="rate", markers='', ci=None, hue='policy', ax=ax, data=df)
 
@@ -61,7 +68,7 @@ for label in ax.get_xticklabels():
 for label in ax.get_xticklabels()[::2]:
 	label.set_visible(True)
 #ax.set_ylim(0,math.ceil(max_end_time/25.0)*25)
-ax.set(xlabel='Items Processed by vCPU Core', ylabel='Elapsed Time (s)')
+ax.set(xlabel='Items Processed by vCPU Core', ylabel='Current Processing Rate (items per s)')
 
 # Set legend correctly
 new_handles = []

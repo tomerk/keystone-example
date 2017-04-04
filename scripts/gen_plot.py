@@ -10,7 +10,7 @@ oracles = sys.argv[3]
 output_file = sys.argv[4]
 
 policy_labels = {'constant:0': 'Convolve via Loops', 'constant:1': 'Convolve via Matrix Multiply',
-                 'constant:2': 'Convolve via FFT', 'oracle:min:oracle_data.csv': 'Oracle'}
+                 'constant:2': 'Convolve via FFT', 'oracle:min': 'Oracle'}
 
 ## Plot the current policy
 bandit_rewards = pd.read_csv(sys.argv[1])

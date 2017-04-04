@@ -19,6 +19,8 @@ flintrock run-command bandits-cluster 'sudo yum install -y git'
 
 flintrock run-command bandits-cluster 'sudo yum install -y tmux'
 
+flintrock run-command bandits-cluster 'sudo yum install -y gcc'
+
 flintrock run-command bandits-cluster 'echo "set-window-option -g mode-keys vi" > .tmux.conf'
 
 flintrock run-command bandits-cluster "
