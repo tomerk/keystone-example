@@ -55,12 +55,14 @@ object ConvolveFlickrData extends Serializable with Logging {
       task.image.metadata.xDim,
       task.image.metadata.yDim,
       task.filters.cols,
-      task.filters.rows
+      task.filters.rows,
+      1.0 // The bias
     )
   }
 
   def kernelFeatures(task: ConvolutionTask): DenseVector[Double] = {
     DenseVector(
+      1.0, // The bias
       task.image.metadata.xDim,
       task.image.metadata.yDim,
       task.image.metadata.xDim * task.image.metadata.yDim,
@@ -202,6 +204,8 @@ object ConvolveFlickrData extends Serializable with Logging {
     }
 
 
+    val approxPartitionSize = 8000.0 * crops.length / conf.numParts
+
     val imgs = FlickrLoader(sc, conf.trainLocation, conf.labelLocation)
     val croppedImgs = imgs.flatMap{
       case (id, img) => crops.iterator.zipWithIndex.map {
@@ -223,16 +227,91 @@ object ConvolveFlickrData extends Serializable with Logging {
       }
     })
 
-    val convolutionTasks = croppedImgs.mapPartitionsWithIndex { case (index, it) =>
-      val rand = new Random(index)
+    val convolutionTasks = conf.nonstationarity.split(':') match {
+      case Array("") =>
+        croppedImgs.mapPartitionsWithIndex { case (index, it) =>
+          val rand = new Random(index)
 
-      it.map {
-        case (id, img) =>
-          val random_index = rand.nextInt(filters.length)
-          val patches = filters(random_index)
-          ConvolutionTask(s"${id._1}_${id._2}", img, patches)
-      }
-    }.cache()
+          it.map {
+            case (id, img) =>
+              val random_index = rand.nextInt(filters.length)
+              val patches = filters(random_index)
+              ConvolutionTask(s"${id._1}_${id._2}", img, patches)
+          }
+        }.cache()
+
+      case Array("sort") =>
+        val approxCount = approxPartitionSize * conf.numParts
+        croppedImgs.mapPartitionsWithIndex { case (index, it) =>
+          var i = index * approxPartitionSize
+          it.map {
+            case (id, img) =>
+              val filterPos = math.min(math.round(filters.length * i / approxCount).toInt, filters.length - 1)
+              val patches = filters(filterPos)
+              i = i + 1
+              ConvolutionTask(s"${id._1}_${id._2}", img, patches)
+          }
+        }.cache()
+
+      case Array("sort_partitions") =>
+        croppedImgs.mapPartitionsWithIndex { case (index, it) =>
+          var i = 0
+          it.map {
+            case (id, img) =>
+              val filterPos = math.min(math.round(filters.length * i / approxPartitionSize).toInt, filters.length - 1)
+              val patches = filters(filterPos)
+              i = i + 1
+              ConvolutionTask(s"${id._1}_${id._2}", img, patches)
+          }
+        }.cache()
+
+      case Array("periodic") =>
+        croppedImgs.mapPartitionsWithIndex { case (index, it) =>
+          var i = 0
+          it.map {
+            case (id, img) =>
+              val patches = filters(i % filters.length)
+              i = i + 1
+              ConvolutionTask(s"${id._1}_${id._2}", img, patches)
+          }
+        }.cache()
+
+      case Array("hash") =>
+        require(filters.length >= conf.numParts, "With hash partitioning must have more filter options than partitions")
+        croppedImgs.mapPartitionsWithIndex { case (index, it) =>
+          val rand = new Random(index)
+          val filtersForPartition = filters.zipWithIndex.filter(_._2 % conf.numParts == index).map(_._1)
+
+          it.map {
+            case (id, img) =>
+              val random_index = rand.nextInt(filtersForPartition.length)
+              val patches = filtersForPartition(random_index)
+              ConvolutionTask(s"${id._1}_${id._2}", img, patches)
+          }
+        }.cache()
+
+      case Array("random_walk", probability_string) =>
+        val probability = probability_string.toDouble
+        croppedImgs.mapPartitionsWithIndex { case (index, it) =>
+          var filter_index: Int = filters.length / 2
+          val rand = new Random(index)
+
+          it.map {
+            case (id, img) =>
+              val draw = rand.nextFloat()
+              if (draw < probability) {
+                filter_index += 1
+              } else if (draw < probability * 2) {
+                filter_index -= 1
+              }
+              filter_index = math.max(math.min(filter_index, filters.length - 1), 0)
+              val patches = filters(filter_index)
+              ConvolutionTask(s"${id._1}_${id._2}", img, patches)
+          }
+        }.cache()
+
+      case _ => throw new IllegalArgumentException(s"Unknown nonstationarity ${conf.nonstationarity}")
+    }
 
     convolutionTasks.count()
 
@@ -292,6 +371,7 @@ object ConvolveFlickrData extends Serializable with Logging {
       crops: String = "0,0,1,1:0,0,0.5,0.5:0,0.5,0.5,1.0:0.5,0,1,0.5:0.5,0.5,1,1",
       patches: String = "15,2",
       policy: String = "",
+      nonstationarity: String = "",
       communicationRate: String = "5s",
       disableMulticore: Boolean = false,
       warmup: Option[Int] = None,
@@ -305,6 +385,7 @@ object ConvolveFlickrData extends Serializable with Logging {
     opt[String]("outputLocation") required() action { (x,c) => c.copy(outputLocation=x) }
     opt[String]("labelLocation") required() action { (x,c) => c.copy(labelLocation=x) }
     opt[String]("policy") required() action { (x,c) => c.copy(policy=x) }
+    opt[String]("nonstationarity") action { (x,c) => c.copy(nonstationarity=x) }
     opt[String]("patches") action { (x,c) => c.copy(patches=x) }
     opt[String]("crops") action { (x,c) => c.copy(crops=x) }
     opt[String]("communicationRate") action { (x,c) => c.copy(communicationRate=x) }

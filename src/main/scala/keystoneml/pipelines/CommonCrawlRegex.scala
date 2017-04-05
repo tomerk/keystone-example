@@ -7,13 +7,13 @@ import keystoneml.utils.Image
 import keystoneml.workflow.{Identity, Pipeline}
 import net.greypanther.javaadvent.regex.Regex
 import net.greypanther.javaadvent.regex.factories._
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.{Partitioner, SparkConf, SparkContext}
 import org.jsoup.Jsoup
 import scopt.OptionParser
 
 import scala.collection.JavaConverters._
 
-case class RegexTask(doc: String, regexOptions: Seq[Regex]) {
+case class RegexTask(id: String, doc: String, regexOptions: Seq[Regex]) {
   def getMatches(arm: Int): Array[String] = regexOptions(arm).getMatches(doc, Array(0)).asScala.map(_.head).toArray
 }
 
@@ -27,7 +27,15 @@ object CommonCrawlRegex extends Serializable with Logging {
   def run(sc: SparkContext, conf: PipelineConfig): Pipeline[Image, Image] = {
     //Set up some constants.
 
-    val commoncrawl = CommonCrawlLoader(sc, conf.trainLocation).repartition(conf.numParts).cache()
+    val commoncrawl = CommonCrawlLoader(sc, conf.trainLocation).repartitionAndSortWithinPartitions(
+      new Partitioner {
+      override def numPartitions = conf.numParts
+      override def getPartition(key: Any) = {
+        val id = key.asInstanceOf[String]
+        id.hashCode % conf.numParts
+      }
+    }).cache()
+
     val numDocs = commoncrawl.count()
     logInfo(s"loaded $numDocs docs")
 
@@ -54,8 +62,6 @@ object CommonCrawlRegex extends Serializable with Logging {
       ("JavaUtilPatternRegexFactory", _ => new JavaUtilPatternRegexFactory)
       //("ComBasistechTclRegexFactory", _ => new ComBasistechTclRegexFactory)
     )
-    val regexes = factories.map(x => (x._1, x._2().create(regexp)))
-
 
     val doc = commoncrawl.first()
     factories.foreach { case (libName, factory) =>
