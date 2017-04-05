@@ -172,31 +172,31 @@ object ConvolveFlickrData extends Serializable with Logging {
 
         // Contextual policies
         case Array("contextual-epsilon-greedy") =>
-          sc.contextualBandit(convolutionOps, features, ContextualEpsilonGreedyPolicyParams(4))
+          sc.contextualBandit(convolutionOps, features, ContextualEpsilonGreedyPolicyParams(5))
         case Array("contextual-epsilon-greedy", epsilon) =>
-          sc.contextualBandit(convolutionOps, features, ContextualEpsilonGreedyPolicyParams(4, epsilon.toDouble))
+          sc.contextualBandit(convolutionOps, features, ContextualEpsilonGreedyPolicyParams(5, epsilon.toDouble))
         case Array("linear-thompson-sampling") =>
-          sc.contextualBandit(convolutionOps, features, LinThompsonSamplingPolicyParams(4, 2.0))
+          sc.contextualBandit(convolutionOps, features, LinThompsonSamplingPolicyParams(5, 2.0))
         case Array("linear-thompson-sampling", varMultiplier) =>
-          sc.contextualBandit(convolutionOps, features, LinThompsonSamplingPolicyParams(4, varMultiplier.toDouble))
+          sc.contextualBandit(convolutionOps, features, LinThompsonSamplingPolicyParams(5, varMultiplier.toDouble))
         case Array("lin-ucb") =>
-          sc.contextualBandit(convolutionOps, features, LinUCBPolicyParams(4))
+          sc.contextualBandit(convolutionOps, features, LinUCBPolicyParams(5))
         case Array("lin-ucb", alpha) =>
-          sc.contextualBandit(convolutionOps, features, LinUCBPolicyParams(4, alpha.toDouble))
+          sc.contextualBandit(convolutionOps, features, LinUCBPolicyParams(5, alpha.toDouble))
 
         // Contextual Kernel policies
         case Array("kernel-contextual-epsilon-greedy") =>
-          sc.contextualBandit(convolutionOps, kernelFeatures, ContextualEpsilonGreedyPolicyParams(7))
+          sc.contextualBandit(convolutionOps, kernelFeatures, ContextualEpsilonGreedyPolicyParams(8))
         case Array("kernel-contextual-epsilon-greedy", epsilon) =>
-          sc.contextualBandit(convolutionOps, kernelFeatures, ContextualEpsilonGreedyPolicyParams(7, epsilon.toDouble))
+          sc.contextualBandit(convolutionOps, kernelFeatures, ContextualEpsilonGreedyPolicyParams(8, epsilon.toDouble))
         case Array("kernel-linear-thompson-sampling") =>
-          sc.contextualBandit(convolutionOps, kernelFeatures, LinThompsonSamplingPolicyParams(7))
+          sc.contextualBandit(convolutionOps, kernelFeatures, LinThompsonSamplingPolicyParams(8))
         case Array("kernel-linear-thompson-sampling", varMultiplier) =>
-          sc.contextualBandit(convolutionOps, kernelFeatures, LinThompsonSamplingPolicyParams(7, varMultiplier.toDouble))
+          sc.contextualBandit(convolutionOps, kernelFeatures, LinThompsonSamplingPolicyParams(8, varMultiplier.toDouble))
         case Array("kernel-lin-ucb") =>
-          sc.contextualBandit(convolutionOps, kernelFeatures, LinUCBPolicyParams(7))
+          sc.contextualBandit(convolutionOps, kernelFeatures, LinUCBPolicyParams(8))
         case Array("kernel-lin-ucb", alpha) =>
-          sc.contextualBandit(convolutionOps, kernelFeatures, LinUCBPolicyParams(7, alpha.toDouble))
+          sc.contextualBandit(convolutionOps, kernelFeatures, LinUCBPolicyParams(8, alpha.toDouble))
 
         case _ =>
           throw new IllegalArgumentException(s"Invalid policy ${conf.policy}")
