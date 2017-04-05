@@ -1,3 +1,3 @@
 #!/bin/bash
-
-echo 'y' | flintrock destroy bandits-cluster
+BANDITS_CLUSTER="${BANDITS_CLUSTER:-bandits-cluster}"
+echo 'y' | flintrock destroy $BANDITS_CLUSTER

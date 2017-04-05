@@ -1,4 +1,5 @@
 #!/bin/bash
+BANDITS_CLUSTER="${BANDITS_CLUSTER:-bandits-cluster}"
 NUM_PARTS=32 #32
 KEYSTONE_MEM=20g
 
@@ -6,11 +7,13 @@ KEYSTONE_MEM=20g
 declare -a DISTRIBUTED_SETTINGS=("")
 #declare -a WARMUP_SETTINGS=("" "--warmup 5")
 declare -a WARMUP_SETTINGS=("--warmup 5")
-PATCH_SETTINGS="5,3 5,3:5,20:8,30:24,5:25,1"
+declare -a NONSTATIONARY_SETTINGS=("" "--nonstationarity sort" "--nonstationarity periodic" "--nonstationarity sort_partition" "--nonstationarity random_walk" )
+
+PATCH_SETTINGS="5,3:5,20:8,30:24,5:25,1" #"5,3 5,3:5,20:8,30:24,5:25,1"
 CROP_SETTINGS="0,0,0.5,0.5:0,0.5,0.5,1.0:0.5,0,1,0.5:0.5,0.5,1,1"
 CONSTANT_POLICIES="constant:0 constant:1 constant:2"
 ORACLE_POLICIES="oracle:min"
-DYNAMIC_POLICIES="kernel-linear-thompson-sampling lin-ucb kernel-lin-ucb linear-thompson-sampling" #epsilon-greedy gaussian-thompson-sampling pseudo-ucb linear-thompson-sampling lin-ucb"
+DYNAMIC_POLICIES="psuedo-ucb lin-ucb kernel-lin-ucb" #epsilon-greedy gaussian-thompson-sampling pseudo-ucb linear-thompson-sampling lin-ucb"
 
 # Execute the trials
 for CROP_SETTING in $CROP_SETTINGS
@@ -21,7 +24,7 @@ do
         do
             OUT_CSV="$POLICY-$PATCH_SETTING-$CROP_SETTING.csv"
             echo "Generating $OUT_CSV"
-            flintrock run-command --master-only bandits-cluster "
+            flintrock run-command --master-only $BANDITS_CLUSTER "
 cd keystone-example
 KEYSTONE_MEM=$KEYSTONE_MEM ./bin/run-pipeline.sh \
   keystoneml.pipelines.ConvolveFlickrData \
@@ -34,14 +37,14 @@ KEYSTONE_MEM=$KEYSTONE_MEM ./bin/run-pipeline.sh \
   --crops $CROP_SETTING \
   --numParts $NUM_PARTS --warmup 5
 "
-            flintrock download-file bandits-cluster keystone-example/$OUT_CSV experiment-results/$OUT_CSV
+            flintrock download-file $BANDITS_CLUSTER keystone-example/$OUT_CSV experiment-results/$OUT_CSV
 
             # Delete excessive JARs that get copied to each app and fill up disks
-            flintrock run-command bandits-cluster "rm spark/work/*/*/*.jar" > /dev/null
+            flintrock run-command $BANDITS_CLUSTER "rm spark/work/*/*/*.jar" > /dev/null
         done
 
         CONSTANT_GLOM="constant:*-$PATCH_SETTING-$CROP_SETTING.csv"
-        flintrock run-command --master-only bandits-cluster "
+        flintrock run-command --master-only $BANDITS_CLUSTER "
 cd keystone-example
 cat $CONSTANT_GLOM > oracle_data.csv
 "
@@ -49,7 +52,7 @@ cat $CONSTANT_GLOM > oracle_data.csv
         do
             OUT_CSV="$POLICY-$PATCH_SETTING-$CROP_SETTING.csv"
             echo "Generating $OUT_CSV"
-            flintrock run-command --master-only bandits-cluster "
+            flintrock run-command --master-only $BANDITS_CLUSTER "
 cd keystone-example
 KEYSTONE_MEM=$KEYSTONE_MEM ./bin/run-pipeline.sh \
   keystoneml.pipelines.ConvolveFlickrData \
@@ -62,10 +65,10 @@ KEYSTONE_MEM=$KEYSTONE_MEM ./bin/run-pipeline.sh \
   --crops $CROP_SETTING \
   --numParts $NUM_PARTS --warmup 5
 "
-            flintrock download-file bandits-cluster keystone-example/$OUT_CSV experiment-results/$OUT_CSV
+            flintrock download-file $BANDITS_CLUSTER keystone-example/$OUT_CSV experiment-results/$OUT_CSV
 
             # Delete excessive JARs that get copied to each app and fill up disks
-            flintrock run-command bandits-cluster "rm spark/work/*/*/*.jar" > /dev/null
+            flintrock run-command $BANDITS_CLUSTER "rm spark/work/*/*/*.jar" > /dev/null
         done
 
         for DISTRIBUTED_SETTING_INDEX in "${!DISTRIBUTED_SETTINGS[@]}"
@@ -76,7 +79,7 @@ KEYSTONE_MEM=$KEYSTONE_MEM ./bin/run-pipeline.sh \
                 do
                     OUT_CSV="$POLICY-$PATCH_SETTING-$CROP_SETTING-WARMUP_$WARMUP_INDEX-DISTRIBUTED_$DISTRIBUTED_SETTING_INDEX.csv"
                     echo "Generating $OUT_CSV"
-                    flintrock run-command --master-only bandits-cluster "
+                    flintrock run-command --master-only $BANDITS_CLUSTER "
     cd keystone-example
     KEYSTONE_MEM=$KEYSTONE_MEM ./bin/run-pipeline.sh \
       keystoneml.pipelines.ConvolveFlickrData \
@@ -89,10 +92,10 @@ KEYSTONE_MEM=$KEYSTONE_MEM ./bin/run-pipeline.sh \
       --crops $CROP_SETTING \
       --numParts $NUM_PARTS ${DISTRIBUTED_SETTINGS[$DISTRIBUTED_SETTING_INDEX]} ${WARMUP_SETTINGS[$WARMUP_INDEX]}
     "
-                    flintrock download-file bandits-cluster keystone-example/$OUT_CSV experiment-results/$OUT_CSV
+                    flintrock download-file $BANDITS_CLUSTER keystone-example/$OUT_CSV experiment-results/$OUT_CSV
 
                     # Delete excessive JARs that get copied to each app and fill up disks
-                    flintrock run-command bandits-cluster "rm spark/work/*/*/*.jar" > /dev/null
+                    flintrock run-command $BANDITS_CLUSTER "rm spark/work/*/*/*.jar" > /dev/null
                 done
             done
         done

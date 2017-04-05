@@ -1,2 +1,4 @@
 #!/usr/bin/env bash
-flintrock login bandits-cluster
+BANDITS_CLUSTER="${BANDITS_CLUSTER:-bandits-cluster}"
+
+flintrock login $BANDITS_CLUSTER
