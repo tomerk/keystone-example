@@ -334,6 +334,27 @@ object ConvolveFlickrData extends Serializable with Logging {
           }
         }.cache()
 
+      case Array("global_random_walk", probability_string) =>
+        val probability = probability_string.toDouble
+        croppedImgs.mapPartitionsWithIndex { case (index, it) =>
+          var filter_index: Int = filters.length / 2
+          val rand = new Random(conf.numParts * 10)
+
+          it.zipWithIndex.map {
+            case ((id, img), indexInPartition) =>
+              val globalIndex: Int = (index * approxPartitionSize + indexInPartition).toInt
+              val draw = rand.nextFloat()
+              if (draw < probability) {
+                filter_index += 1
+              } else if (draw < probability * 2) {
+                filter_index -= 1
+              }
+              filter_index = math.max(math.min(filter_index, filters.length - 1), 0)
+              val patches = filters(filter_index)
+              ConvolutionTask(s"${id._1}_${id._2}", img, patches, partitionId = index, indexInPartition = indexInPartition, globalIndex = globalIndex, autoregressiveFeatures = null)
+          }
+        }.cache()
+
       case _ => throw new IllegalArgumentException(s"Unknown nonstationarity ${conf.nonstationarity}")
     }
 

@@ -7,13 +7,13 @@ KEYSTONE_MEM=20g
 declare -a DISTRIBUTED_SETTINGS=("")
 #declare -a WARMUP_SETTINGS=("" "--warmup 5")
 declare -a WARMUP_SETTINGS=("--warmup 5")
-declare -a NONSTATIONARY_SETTINGS=("--nonstationarity sort" "--nonstationarity periodic") #NONSTATIONARY_SETTINGS=("" "--nonstationarity sort" "--nonstationarity periodic" "--nonstationarity sort_partition" "--nonstationarity random_walk,0.05" )
+declare -a NONSTATIONARY_SETTINGS=("--nonstationarity sort_partition" "--nonstationarity global_random_walk,0.05") #"--nonstationarity sort" "--nonstationarity random_walk,0.05" "--nonstationarity periodic") #NONSTATIONARY_SETTINGS=("" "--nonstationarity sort" "--nonstationarity periodic" "--nonstationarity sort_partition" "--nonstationarity random_walk,0.05" )
 
 PATCH_SETTINGS="5,3:5,20:8,30:24,5:25,1" #"5,3 5,3:5,20:8,30:24,5:25,1"
-CROP_SETTINGS="0,0,0.5,0.5:0,0.5,0.5,1.0:0.5,0,1,0.5:0.5,0.5,1,1"
+CROP_SETTINGS="0,0,0.5,0.5" #"0,0,0.5,0.5:0,0.5,0.5,1.0:0.5,0,1,0.5:0.5,0.5,1,1"
 CONSTANT_POLICIES="constant:0 constant:1 constant:2"
 ORACLE_POLICIES="oracle:min"
-DYNAMIC_POLICIES="pseudo-ucb gaussian-thompson-sampling lin-ucb:bias,fft_cost_model,matrix_multiply_cost_model" #epsilon-greedy gaussian-thompson-sampling pseudo-ucb linear-thompson-sampling lin-ucb"
+DYNAMIC_POLICIES="pseudo-ucb gaussian-thompson-sampling lin-ucb:bias,fft_cost_model,matrix_multiply_cost_model,pos_in_partition,global_index,periodic_5" #epsilon-greedy gaussian-thompson-sampling pseudo-ucb linear-thompson-sampling lin-ucb"
 
 # Execute the trials
 for CROP_SETTING in $CROP_SETTINGS
@@ -52,7 +52,7 @@ do
     "
             for POLICY in $ORACLE_POLICIES
             do
-                OUT_CSV="$POLICY-$PATCH_SETTING-$CROP_SETTING.csv"
+                OUT_CSV="$POLICY-$PATCH_SETTING-$CROP_SETTING-NONSTATIONARY-$NONSTATIONARY_INDEX.csv"
                 echo "Generating $OUT_CSV"
                 flintrock run-command --master-only $BANDITS_CLUSTER "
     cd keystone-example
