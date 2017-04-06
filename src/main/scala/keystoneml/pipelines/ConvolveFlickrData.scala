@@ -10,7 +10,6 @@ import keystoneml.nodes.images.Convolver
 import keystoneml.nodes.{FFTConvolver, LoopConvolver}
 import keystoneml.utils.{Image, ImageUtils}
 import keystoneml.workflow.{Identity, Pipeline}
-import org.apache.spark.bandit.{Action, BanditTrait}
 import org.apache.spark.bandit.policies._
 import org.apache.spark.{Partitioner, SparkConf, SparkContext}
 import scopt.OptionParser
@@ -30,48 +29,81 @@ case class ConvolveRecord(partitionId: Int,
                           filterCols: Int,
                           reward: Double,
                           arm: Int)
-object DebugCholesky extends Serializable with Logging {
-  def kernelFeatures(record: ConvolveRecord): DenseVector[Double] = {
-    DenseVector(
-      //record.imgXDim,
-      //record.imgYDim,
-      record.imgXDim * record.imgYDim,
-      //record.filterCols,
-      //record.filterRows,
-      //record.imgXDim * record.imgYDim *
-       // (math.log(record.imgXDim) + math.log(record.imgYDim)), // fft
-      record.imgXDim * record.imgYDim * record.filterCols * record.filterRows // matrix multiply
-    )
-  }
-}
 
 case class ConvolutionTask(id: String,
                            image: Image,
-                           filters: DenseMatrix[Double])
+                           filters: DenseMatrix[Double],
+                          globalIndex: Int,
+                          partitionId: Int,
+                          indexInPartition: Int,
+                          var autoregressiveFeatures: Array[Double])
+
+abstract class Feature extends Serializable {
+  def get(task: ConvolutionTask): Double
+}
+
+case class Bias() extends Feature {
+  override def get(task: ConvolutionTask): Double = 1.0
+}
+case class ImageRows() extends Feature {
+  override def get(task: ConvolutionTask): Double = task.image.metadata.yDim
+}
+case class ImageCols() extends Feature {
+  override def get(task: ConvolutionTask): Double = task.image.metadata.xDim
+}
+case class FilterRows() extends Feature {
+  override def get(task: ConvolutionTask): Double = task.filters.rows
+}
+case class FilterCols() extends Feature {
+  override def get(task: ConvolutionTask): Double = task.filters.cols
+}
+case class FFTFeature() extends Feature {
+  override def get(task: ConvolutionTask): Double = {
+    task.image.metadata.xDim * task.image.metadata.yDim *
+      (math.log(task.image.metadata.xDim) + math.log(task.image.metadata.yDim))
+  }
+}
+
+case class MatrixMultiplyFeature() extends Feature {
+  override def get(task: ConvolutionTask): Double = {
+    task.image.metadata.xDim * task.image.metadata.yDim * task.filters.cols * task.filters.rows
+  }
+}
+
+case class GlobalIndex() extends Feature {
+  override def get(task: ConvolutionTask): Double = task.globalIndex
+}
+case class PosInPartition() extends Feature {
+  override def get(task: ConvolutionTask): Double = task.indexInPartition
+}
+case class Periodic(period: Int) extends Feature {
+  override def get(task: ConvolutionTask): Double = task.indexInPartition % period
+}
+
 object ConvolveFlickrData extends Serializable with Logging {
 
-  def features(task: ConvolutionTask): DenseVector[Double] = {
-    DenseVector(
-      task.image.metadata.xDim,
-      task.image.metadata.yDim,
-      task.filters.cols,
-      task.filters.rows,
-      1.0 // The bias
-    )
+  def makeFeatures(features: String): (ConvolutionTask => DenseVector[Double], Int) = {
+    val featureList: Array[Feature] = features.split(',').map {
+      case "bias" => Bias()
+      case "image_rows" => ImageRows()
+      case "image_cols" => ImageCols()
+      case "filter_rows" => FilterRows()
+      case "filter_cols" => FilterCols()
+      case "fft_cost_model" => FFTFeature()
+      case "matrix_multiply_cost_model" => MatrixMultiplyFeature()
+      case "global_index" => GlobalIndex()
+      case "pos_in_partition" => PosInPartition()
+      case periodicString if periodicString.startsWith("periodic_") =>
+        val period = periodicString.split('_').last.toInt
+        Periodic(period)
+      case unknown => throw new IllegalArgumentException(s"Unknown feature $unknown")
+    }
+
+    (extractFeatures(featureList, _), featureList.length)
   }
 
-  def kernelFeatures(task: ConvolutionTask): DenseVector[Double] = {
-    DenseVector(
-      1.0, // The bias
-      task.image.metadata.xDim,
-      task.image.metadata.yDim,
-      task.image.metadata.xDim * task.image.metadata.yDim,
-      task.filters.cols,
-      task.filters.rows,
-      task.image.metadata.xDim * task.image.metadata.yDim *
-        (math.log(task.image.metadata.xDim) + math.log(task.image.metadata.yDim)), // fft
-      task.image.metadata.xDim * task.image.metadata.yDim * task.filters.cols * task.filters.rows // matrix multiply
-    )
+  def extractFeatures(featureList: Array[Feature], task: ConvolutionTask): DenseVector[Double] = {
+    DenseVector(featureList.map(_.get(task)))
   }
 
   def minOracle(path: String): ConvolutionTask => Int = {
@@ -171,32 +203,24 @@ object ConvolveFlickrData extends Serializable with Logging {
           sc.bandit(convolutionOps, UCBPseudoTunedPolicyParams(rewardRange.toDouble))
 
         // Contextual policies
-        case Array("contextual-epsilon-greedy") =>
-          sc.contextualBandit(convolutionOps, features, ContextualEpsilonGreedyPolicyParams(5))
-        case Array("contextual-epsilon-greedy", epsilon) =>
-          sc.contextualBandit(convolutionOps, features, ContextualEpsilonGreedyPolicyParams(5, epsilon.toDouble))
-        case Array("linear-thompson-sampling") =>
-          sc.contextualBandit(convolutionOps, features, LinThompsonSamplingPolicyParams(5, 2.0))
-        case Array("linear-thompson-sampling", varMultiplier) =>
-          sc.contextualBandit(convolutionOps, features, LinThompsonSamplingPolicyParams(5, varMultiplier.toDouble))
-        case Array("lin-ucb") =>
-          sc.contextualBandit(convolutionOps, features, LinUCBPolicyParams(5))
-        case Array("lin-ucb", alpha) =>
-          sc.contextualBandit(convolutionOps, features, LinUCBPolicyParams(5, alpha.toDouble))
-
-        // Contextual Kernel policies
-        case Array("kernel-contextual-epsilon-greedy") =>
-          sc.contextualBandit(convolutionOps, kernelFeatures, ContextualEpsilonGreedyPolicyParams(8))
-        case Array("kernel-contextual-epsilon-greedy", epsilon) =>
-          sc.contextualBandit(convolutionOps, kernelFeatures, ContextualEpsilonGreedyPolicyParams(8, epsilon.toDouble))
-        case Array("kernel-linear-thompson-sampling") =>
-          sc.contextualBandit(convolutionOps, kernelFeatures, LinThompsonSamplingPolicyParams(8))
-        case Array("kernel-linear-thompson-sampling", varMultiplier) =>
-          sc.contextualBandit(convolutionOps, kernelFeatures, LinThompsonSamplingPolicyParams(8, varMultiplier.toDouble))
-        case Array("kernel-lin-ucb") =>
-          sc.contextualBandit(convolutionOps, kernelFeatures, LinUCBPolicyParams(8))
-        case Array("kernel-lin-ucb", alpha) =>
-          sc.contextualBandit(convolutionOps, kernelFeatures, LinUCBPolicyParams(8, alpha.toDouble))
+        case Array("contextual-epsilon-greedy", featureString) =>
+          val (features, numFeatures) = makeFeatures(featureString)
+          sc.contextualBandit(convolutionOps, features, ContextualEpsilonGreedyPolicyParams(numFeatures))
+        case Array("contextual-epsilon-greedy", featureString, epsilon) =>
+          val (features, numFeatures) = makeFeatures(featureString)
+          sc.contextualBandit(convolutionOps, features, ContextualEpsilonGreedyPolicyParams(numFeatures, epsilon.toDouble))
+        case Array("linear-thompson-sampling", featureString) =>
+          val (features, numFeatures) = makeFeatures(featureString)
+          sc.contextualBandit(convolutionOps, features, LinThompsonSamplingPolicyParams(numFeatures, 2.0))
+        case Array("linear-thompson-sampling", featureString, useCholesky, varMultiplier) =>
+          val (features, numFeatures) = makeFeatures(featureString)
+          sc.contextualBandit(convolutionOps, features, LinThompsonSamplingPolicyParams(numFeatures, varMultiplier.toDouble, useCholesky = useCholesky.toBoolean))
+        case Array("lin-ucb", featureString) =>
+          val (features, numFeatures) = makeFeatures(featureString)
+          sc.contextualBandit(convolutionOps, features, LinUCBPolicyParams(numFeatures))
+        case Array("lin-ucb", featureString, alpha) =>
+          val (features, numFeatures) = makeFeatures(featureString)
+          sc.contextualBandit(convolutionOps, features, LinUCBPolicyParams(numFeatures, alpha.toDouble))
 
         case _ =>
           throw new IllegalArgumentException(s"Invalid policy ${conf.policy}")
@@ -227,52 +251,50 @@ object ConvolveFlickrData extends Serializable with Logging {
       }
     })
 
-    val convolutionTasks = conf.nonstationarity.split(':') match {
-      case Array("") =>
+    val convolutionTasks = conf.nonstationarity.split(',') match {
+      case Array("stationary") =>
         croppedImgs.mapPartitionsWithIndex { case (index, it) =>
           val rand = new Random(index)
 
-          it.map {
-            case (id, img) =>
+          it.zipWithIndex.map {
+            case ((id, img), indexInPartition) =>
+              val globalIndex: Int = (index * approxPartitionSize + indexInPartition).toInt
               val random_index = rand.nextInt(filters.length)
               val patches = filters(random_index)
-              ConvolutionTask(s"${id._1}_${id._2}", img, patches)
+              ConvolutionTask(s"${id._1}_${id._2}", img, patches, partitionId = index, indexInPartition = indexInPartition, globalIndex = globalIndex, autoregressiveFeatures = null)
           }
         }.cache()
 
       case Array("sort") =>
         val approxCount = approxPartitionSize * conf.numParts
         croppedImgs.mapPartitionsWithIndex { case (index, it) =>
-          var i = index * approxPartitionSize
-          it.map {
-            case (id, img) =>
-              val filterPos = math.min(math.round(filters.length * i / approxCount).toInt, filters.length - 1)
+          it.zipWithIndex.map {
+            case ((id, img), indexInPartition) =>
+              val globalIndex: Int = (index * approxPartitionSize + indexInPartition).toInt
+              val filterPos = math.min(math.round(filters.length * globalIndex / approxCount).toInt, filters.length - 1)
               val patches = filters(filterPos)
-              i = i + 1
-              ConvolutionTask(s"${id._1}_${id._2}", img, patches)
+              ConvolutionTask(s"${id._1}_${id._2}", img, patches, partitionId = index, indexInPartition = indexInPartition, globalIndex = globalIndex, autoregressiveFeatures = null)
           }
         }.cache()
 
       case Array("sort_partitions") =>
         croppedImgs.mapPartitionsWithIndex { case (index, it) =>
-          var i = 0
-          it.map {
-            case (id, img) =>
-              val filterPos = math.min(math.round(filters.length * i / approxPartitionSize).toInt, filters.length - 1)
+          it.zipWithIndex.map {
+            case ((id, img), indexInPartition) =>
+              val globalIndex: Int = (index * approxPartitionSize + indexInPartition).toInt
+              val filterPos = math.min(math.round(filters.length * indexInPartition / approxPartitionSize).toInt, filters.length - 1)
               val patches = filters(filterPos)
-              i = i + 1
-              ConvolutionTask(s"${id._1}_${id._2}", img, patches)
+              ConvolutionTask(s"${id._1}_${id._2}", img, patches, partitionId = index, indexInPartition = indexInPartition, globalIndex = globalIndex, autoregressiveFeatures = null)
           }
         }.cache()
 
       case Array("periodic") =>
         croppedImgs.mapPartitionsWithIndex { case (index, it) =>
-          var i = 0
-          it.map {
-            case (id, img) =>
-              val patches = filters(i % filters.length)
-              i = i + 1
-              ConvolutionTask(s"${id._1}_${id._2}", img, patches)
+          it.zipWithIndex.map {
+            case ((id, img), indexInPartition) =>
+              val globalIndex: Int = (index * approxPartitionSize + indexInPartition).toInt
+              val patches = filters(indexInPartition % filters.length)
+              ConvolutionTask(s"${id._1}_${id._2}", img, patches, partitionId = index, indexInPartition = indexInPartition, globalIndex = globalIndex, autoregressiveFeatures = null)
           }
         }.cache()
 
@@ -282,11 +304,12 @@ object ConvolveFlickrData extends Serializable with Logging {
           val rand = new Random(index)
           val filtersForPartition = filters.zipWithIndex.filter(_._2 % conf.numParts == index).map(_._1)
 
-          it.map {
-            case (id, img) =>
+          it.zipWithIndex.map {
+            case ((id, img), indexInPartition) =>
+              val globalIndex: Int = (index * approxPartitionSize + indexInPartition).toInt
               val random_index = rand.nextInt(filtersForPartition.length)
               val patches = filtersForPartition(random_index)
-              ConvolutionTask(s"${id._1}_${id._2}", img, patches)
+              ConvolutionTask(s"${id._1}_${id._2}", img, patches, partitionId = index, indexInPartition = indexInPartition, globalIndex = globalIndex, autoregressiveFeatures = null)
           }
         }.cache()
 
@@ -296,8 +319,9 @@ object ConvolveFlickrData extends Serializable with Logging {
           var filter_index: Int = filters.length / 2
           val rand = new Random(index)
 
-          it.map {
-            case (id, img) =>
+          it.zipWithIndex.map {
+            case ((id, img), indexInPartition) =>
+              val globalIndex: Int = (index * approxPartitionSize + indexInPartition).toInt
               val draw = rand.nextFloat()
               if (draw < probability) {
                 filter_index += 1
@@ -306,7 +330,7 @@ object ConvolveFlickrData extends Serializable with Logging {
               }
               filter_index = math.max(math.min(filter_index, filters.length - 1), 0)
               val patches = filters(filter_index)
-              ConvolutionTask(s"${id._1}_${id._2}", img, patches)
+              ConvolutionTask(s"${id._1}_${id._2}", img, patches, partitionId = index, indexInPartition = indexInPartition, globalIndex = globalIndex, autoregressiveFeatures = null)
           }
         }.cache()
 
@@ -327,7 +351,6 @@ object ConvolveFlickrData extends Serializable with Logging {
           }
 
           it.take(warmupCount).map { task =>
-            features(task)
             fftConvolve(task)
             loopConvolve(task)
             matMultConvolve(task)
@@ -371,7 +394,7 @@ object ConvolveFlickrData extends Serializable with Logging {
       crops: String = "0,0,1,1:0,0,0.5,0.5:0,0.5,0.5,1.0:0.5,0,1,0.5:0.5,0.5,1,1",
       patches: String = "15,2",
       policy: String = "",
-      nonstationarity: String = "",
+      nonstationarity: String = "stationary",
       communicationRate: String = "5s",
       disableMulticore: Boolean = false,
       warmup: Option[Int] = None,
