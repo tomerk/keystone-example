@@ -7,7 +7,7 @@ KEYSTONE_MEM=20g
 declare -a DISTRIBUTED_SETTINGS=("")
 #declare -a WARMUP_SETTINGS=("" "--warmup 5")
 declare -a WARMUP_SETTINGS=("--warmup 5")
-declare -a NONSTATIONARY_SETTINGS=("--nonstationarity sort_partition" "--nonstationarity global_random_walk,0.05") #"--nonstationarity sort" "--nonstationarity random_walk,0.05" "--nonstationarity periodic") #NONSTATIONARY_SETTINGS=("" "--nonstationarity sort" "--nonstationarity periodic" "--nonstationarity sort_partition" "--nonstationarity random_walk,0.05" )
+NONSTATIONARY_SETTINGS="stationary sort_partitions sort random_walk,0.05 global_random_walk,0.05" #("--nonstationarity sort_partitions" "--nonstationarity global_random_walk,0.05") #"--nonstationarity sort" "--nonstationarity random_walk,0.05" "--nonstationarity periodic") #NONSTATIONARY_SETTINGS=("" "--nonstationarity sort" "--nonstationarity periodic" "--nonstationarity sort_partition" "--nonstationarity random_walk,0.05" )
 
 PATCH_SETTINGS="5,3:5,20:8,30:24,5:25,1" #"5,3 5,3:5,20:8,30:24,5:25,1"
 CROP_SETTINGS="0,0,0.5,0.5" #"0,0,0.5,0.5:0,0.5,0.5,1.0:0.5,0,1,0.5:0.5,0.5,1,1"
@@ -20,11 +20,11 @@ for CROP_SETTING in $CROP_SETTINGS
 do
     for PATCH_SETTING in $PATCH_SETTINGS
     do
-        for NONSTATIONARY_INDEX in "${!NONSTATIONARY_SETTINGS[@]}"
+        for NONSTATIONARY_SETTING in $NONSTATIONARY_SETTINGS
         do
             for POLICY in $CONSTANT_POLICIES
             do
-                OUT_CSV="$POLICY-$PATCH_SETTING-$CROP_SETTING-NONSTATIONARY-$NONSTATIONARY_INDEX.csv"
+                OUT_CSV="$POLICY-$PATCH_SETTING-$CROP_SETTING-$NONSTATIONARY_SETTING.csv"
                 echo "Generating $OUT_CSV"
                 flintrock run-command --master-only $BANDITS_CLUSTER "
     cd keystone-example
@@ -37,7 +37,7 @@ do
       --policy $POLICY \
       --patches $PATCH_SETTING \
       --crops $CROP_SETTING \
-      --numParts $NUM_PARTS --warmup 5 ${NONSTATIONARY_SETTINGS[$NONSTATIONARY_INDEX]}
+      --numParts $NUM_PARTS --warmup 5 --nonstationarity $NONSTATIONARY_SETTING
     "
                 flintrock download-file $BANDITS_CLUSTER keystone-example/$OUT_CSV experiment-results/$OUT_CSV
 
@@ -45,14 +45,14 @@ do
                 flintrock run-command $BANDITS_CLUSTER "rm spark/work/*/*/*.jar" > /dev/null
             done
 
-            CONSTANT_GLOM="constant:*-$PATCH_SETTING-$CROP_SETTING-NONSTATIONARY-$NONSTATIONARY_INDEX.csv"
+            CONSTANT_GLOM="constant:*-$PATCH_SETTING-$CROP_SETTING-$NONSTATIONARY_SETTING.csv"
             flintrock run-command --master-only $BANDITS_CLUSTER "
     cd keystone-example
     cat $CONSTANT_GLOM > oracle_data.csv
     "
             for POLICY in $ORACLE_POLICIES
             do
-                OUT_CSV="$POLICY-$PATCH_SETTING-$CROP_SETTING-NONSTATIONARY-$NONSTATIONARY_INDEX.csv"
+                OUT_CSV="$POLICY-$PATCH_SETTING-$CROP_SETTING-$NONSTATIONARY_SETTING.csv"
                 echo "Generating $OUT_CSV"
                 flintrock run-command --master-only $BANDITS_CLUSTER "
     cd keystone-example
@@ -65,7 +65,7 @@ do
       --policy $POLICY:oracle_data.csv \
       --patches $PATCH_SETTING \
       --crops $CROP_SETTING \
-      --numParts $NUM_PARTS --warmup 5 ${NONSTATIONARY_SETTINGS[$NONSTATIONARY_INDEX]}
+      --numParts $NUM_PARTS --warmup 5 --nonstationarity $NONSTATIONARY_SETTING
     "
                 flintrock download-file $BANDITS_CLUSTER keystone-example/$OUT_CSV experiment-results/$OUT_CSV
 
@@ -79,7 +79,7 @@ do
                 do
                     for POLICY in $DYNAMIC_POLICIES
                     do
-                        OUT_CSV="$POLICY-$PATCH_SETTING-$CROP_SETTING-WARMUP_$WARMUP_INDEX-DISTRIBUTED_$DISTRIBUTED_SETTING_INDEX-NONSTATIONARY-$NONSTATIONARY_INDEX.csv"
+                        OUT_CSV="$POLICY-$PATCH_SETTING-$CROP_SETTING-WARMUP_$WARMUP_INDEX-DISTRIBUTED_$DISTRIBUTED_SETTING_INDEX-$NONSTATIONARY_SETTING.csv"
                         echo "Generating $OUT_CSV"
                         flintrock run-command --master-only $BANDITS_CLUSTER "
         cd keystone-example
@@ -92,7 +92,7 @@ do
           --policy $POLICY \
           --patches $PATCH_SETTING \
           --crops $CROP_SETTING \
-          --numParts $NUM_PARTS ${DISTRIBUTED_SETTINGS[$DISTRIBUTED_SETTING_INDEX]} ${WARMUP_SETTINGS[$WARMUP_INDEX]} ${NONSTATIONARY_SETTINGS[$NONSTATIONARY_INDEX]}
+          --numParts $NUM_PARTS ${DISTRIBUTED_SETTINGS[$DISTRIBUTED_SETTING_INDEX]} ${WARMUP_SETTINGS[$WARMUP_INDEX]} --nonstationarity $NONSTATIONARY_SETTING
         "
                         flintrock download-file $BANDITS_CLUSTER keystone-example/$OUT_CSV experiment-results/$OUT_CSV
 
@@ -110,17 +110,17 @@ for CROP_SETTING in $CROP_SETTINGS
 do
     for PATCH_SETTING in $PATCH_SETTINGS
     do
-        for NONSTATIONARY_INDEX in "${!NONSTATIONARY_SETTINGS[@]}"
+        for NONSTATIONARY_SETTING in $NONSTATIONARY_SETTINGS
         do
-            CONSTANT_GLOM="constant:*-$PATCH_SETTING-$CROP_SETTING-NONSTATIONARY-$NONSTATIONARY_INDEX.csv"
-            ORACLE_GLOM="oracle:*-$PATCH_SETTING-$CROP_SETTING-NONSTATIONARY-$NONSTATIONARY_INDEX.csv"
+            CONSTANT_GLOM="constant:*-$PATCH_SETTING-$CROP_SETTING-$NONSTATIONARY_SETTING.csv"
+            ORACLE_GLOM="oracle:*-$PATCH_SETTING-$CROP_SETTING-$NONSTATIONARY_SETTING.csv"
             for POLICY in $CONSTANT_POLICIES
             do
-                DATA_PATH="experiment-results/$POLICY-$PATCH_SETTING-$CROP_SETTING-NONSTATIONARY-$NONSTATIONARY_INDEX.csv"
-                OUTPUT_FIGURE="$PATCH_SETTING-$CROP_SETTING-$POLICY-NONSTATIONARY-$NONSTATIONARY_INDEX.png"
+                DATA_PATH="experiment-results/$POLICY-$PATCH_SETTING-$CROP_SETTING-$NONSTATIONARY_SETTING.csv"
+                OUTPUT_FIGURE="$PATCH_SETTING-$CROP_SETTING-$POLICY-$NONSTATIONARY_SETTING.png"
                 echo "Generating $OUTPUT_FIGURE"
                 python3 scripts/gen_plot.py $DATA_PATH "experiment-results/$CONSTANT_GLOM" "experiment-results/$ORACLE_GLOM" figures/$OUTPUT_FIGURE
-                OUTPUT_FIGURE="$PATCH_SETTING-$CROP_SETTING-$POLICY-NONSTATIONARY-$NONSTATIONARY_INDEX-rate.png"
+                OUTPUT_FIGURE="$PATCH_SETTING-$CROP_SETTING-$POLICY-$NONSTATIONARY_SETTING-rate.png"
                 echo "Generating $OUTPUT_FIGURE"
                 python3 scripts/gen_rate_plot.py $DATA_PATH "experiment-results/$CONSTANT_GLOM" "experiment-results/$ORACLE_GLOM" figures/$OUTPUT_FIGURE
             done
@@ -130,11 +130,11 @@ do
                 do
                     for POLICY in $DYNAMIC_POLICIES
                     do
-                        DATA_PATH="experiment-results/$POLICY-$PATCH_SETTING-$CROP_SETTING-WARMUP_$WARMUP_INDEX-DISTRIBUTED_$DISTRIBUTED_SETTING_INDEX-NONSTATIONARY-$NONSTATIONARY_INDEX.csv"
-                        OUTPUT_FIGURE="$PATCH_SETTING-$CROP_SETTING-$POLICY-WARMUP_$WARMUP_INDEX-DISTRIBUTED_$DISTRIBUTED_SETTING_INDEX-NONSTATIONARY-$NONSTATIONARY_INDEX.png"
+                        DATA_PATH="experiment-results/$POLICY-$PATCH_SETTING-$CROP_SETTING-WARMUP_$WARMUP_INDEX-DISTRIBUTED_$DISTRIBUTED_SETTING_INDEX-$NONSTATIONARY_SETTING.csv"
+                        OUTPUT_FIGURE="$PATCH_SETTING-$CROP_SETTING-$POLICY-WARMUP_$WARMUP_INDEX-DISTRIBUTED_$DISTRIBUTED_SETTING_INDEX-$NONSTATIONARY_SETTING.png"
                         echo "Generating $OUTPUT_FIGURE"
                         python3 scripts/gen_plot.py $DATA_PATH "experiment-results/$CONSTANT_GLOM" "experiment-results/$ORACLE_GLOM" figures/$OUTPUT_FIGURE
-                        OUTPUT_FIGURE="$PATCH_SETTING-$CROP_SETTING-$POLICY-WARMUP_$WARMUP_INDEX-DISTRIBUTED_$DISTRIBUTED_SETTING_INDEX-NONSTATIONARY-$NONSTATIONARY_INDEX-rate.png"
+                        OUTPUT_FIGURE="$PATCH_SETTING-$CROP_SETTING-$POLICY-WARMUP_$WARMUP_INDEX-DISTRIBUTED_$DISTRIBUTED_SETTING_INDEX-$NONSTATIONARY_SETTING-rate.png"
                         echo "Generating $OUTPUT_FIGURE"
                         python3 scripts/gen_rate_plot.py $DATA_PATH "experiment-results/$CONSTANT_GLOM" "experiment-results/$ORACLE_GLOM" figures/$OUTPUT_FIGURE
                     done
