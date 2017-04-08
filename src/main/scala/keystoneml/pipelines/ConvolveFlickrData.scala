@@ -38,6 +38,25 @@ case class ConvolutionTask(id: String,
                           indexInPartition: Int,
                           var autoregressiveFeatures: Array[Double])
 
+/*
+// When patches = 5,3 everywhere
+object DebugCholesky extends Serializable with Logging {
+  def kernelFeatures(record: ConvolveRecord): DenseVector[Double] = {
+    DenseVector(
+      //record.imgXDim,
+      //record.imgYDim,
+      record.imgXDim * record.imgYDim,
+      //record.filterCols,
+      //record.filterRows,
+      //record.imgXDim * record.imgYDim *
+       // (math.log(record.imgXDim) + math.log(record.imgYDim)), // fft
+      record.imgXDim * record.imgYDim * record.filterCols * record.filterRows // matrix multiply
+    )
+  }
+}
+ */
+
+
 abstract class Feature extends Serializable {
   def get(task: ConvolutionTask): Double
 }
@@ -51,6 +70,10 @@ case class ImageRows() extends Feature {
 case class ImageCols() extends Feature {
   override def get(task: ConvolutionTask): Double = task.image.metadata.xDim
 }
+case class ImageSize() extends Feature {
+  override def get(task: ConvolutionTask): Double = task.image.metadata.xDim * task.image.metadata.yDim
+}
+
 case class FilterRows() extends Feature {
   override def get(task: ConvolutionTask): Double = task.filters.rows
 }
@@ -87,6 +110,7 @@ object ConvolveFlickrData extends Serializable with Logging {
       case "bias" => Bias()
       case "image_rows" => ImageRows()
       case "image_cols" => ImageCols()
+      case "image_size" => ImageSize()
       case "filter_rows" => FilterRows()
       case "filter_cols" => FilterCols()
       case "fft_cost_model" => FFTFeature()
