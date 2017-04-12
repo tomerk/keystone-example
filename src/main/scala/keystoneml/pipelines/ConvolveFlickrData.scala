@@ -221,10 +221,14 @@ object ConvolveFlickrData extends Serializable with Logging {
           sc.bandit(convolutionOps, GaussianThompsonSamplingPolicyParams())
         case Array("gaussian-thompson-sampling", varMultiplier) =>
           sc.bandit(convolutionOps, GaussianThompsonSamplingPolicyParams(varMultiplier.toDouble))
-        case Array("pseudo-ucb") =>
-          sc.bandit(convolutionOps, UCBPseudoTunedPolicyParams())
-        case Array("pseudo-ucb", rewardRange) =>
-          sc.bandit(convolutionOps, UCBPseudoTunedPolicyParams(rewardRange.toDouble))
+        case Array("ucb1-normal") =>
+          sc.bandit(convolutionOps, UCB1NormalPolicyParams())
+        case Array("ucb1-normal", rewardRange) =>
+          sc.bandit(convolutionOps, UCB1NormalPolicyParams(rewardRange.toDouble))
+        case Array("ucb-gaussian-bayes") =>
+          sc.bandit(convolutionOps, GaussianBayesUCBPolicyParams())
+        case Array("ucb-gaussian-bayes", rewardRange) =>
+          sc.bandit(convolutionOps, GaussianBayesUCBPolicyParams(rewardRange.toDouble))
 
         // Contextual policies
         case Array("contextual-epsilon-greedy", featureString) =>
@@ -441,6 +445,7 @@ object ConvolveFlickrData extends Serializable with Logging {
       policy: String = "",
       nonstationarity: String = "stationary",
       communicationRate: String = "5s",
+      clusterCoefficient: String = "1.0",
       disableMulticore: Boolean = false,
       warmup: Option[Int] = None,
       numParts: Int = 64)
@@ -457,6 +462,7 @@ object ConvolveFlickrData extends Serializable with Logging {
     opt[String]("patches") action { (x,c) => c.copy(patches=x) }
     opt[String]("crops") action { (x,c) => c.copy(crops=x) }
     opt[String]("communicationRate") action { (x,c) => c.copy(communicationRate=x) }
+    opt[String]("clusterCoefficient") action { (x,c) => c.copy(clusterCoefficient=x) }
     opt[Unit]("disableMulticore") action { (x,c) => c.copy(disableMulticore=true) }
     opt[Int]("warmup") action { (x,c) => c.copy(warmup=Some(x)) }
     opt[Int]("numParts") action { (x,c) => c.copy(numParts=x) }
@@ -472,7 +478,9 @@ object ConvolveFlickrData extends Serializable with Logging {
 
     val conf = new SparkConf().setAppName(s"$appName-${appConfig.crops}-${appConfig.patches}-${appConfig.policy}-${appConfig.communicationRate}-${appConfig.disableMulticore}").set(
       "spark.bandits.communicationRate",
-      appConfig.communicationRate)
+      appConfig.communicationRate).set(
+      "spark.bandits.clusterCoefficient",
+      appConfig.clusterCoefficient)
     conf.setIfMissing("spark.master", "local[4]")
     val sc = new SparkContext(conf)
     run(sc, appConfig)
