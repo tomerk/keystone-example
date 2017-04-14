@@ -446,6 +446,8 @@ object ConvolveFlickrData extends Serializable with Logging {
       nonstationarity: String = "stationary",
       communicationRate: String = "5s",
       clusterCoefficient: String = "1.0",
+      driftDetectionRate: String = "5s",
+      driftCoefficient: String = "1.0",
       disableMulticore: Boolean = false,
       warmup: Option[Int] = None,
       numParts: Int = 64)
@@ -463,6 +465,8 @@ object ConvolveFlickrData extends Serializable with Logging {
     opt[String]("crops") action { (x,c) => c.copy(crops=x) }
     opt[String]("communicationRate") action { (x,c) => c.copy(communicationRate=x) }
     opt[String]("clusterCoefficient") action { (x,c) => c.copy(clusterCoefficient=x) }
+    opt[String]("driftDetectionRate") action { (x,c) => c.copy(driftDetectionRate=x) }
+    opt[String]("driftCoefficient") action { (x,c) => c.copy(driftCoefficient=x) }
     opt[Unit]("disableMulticore") action { (x,c) => c.copy(disableMulticore=true) }
     opt[Int]("warmup") action { (x,c) => c.copy(warmup=Some(x)) }
     opt[Int]("numParts") action { (x,c) => c.copy(numParts=x) }
@@ -482,9 +486,9 @@ object ConvolveFlickrData extends Serializable with Logging {
       "spark.bandits.clusterCoefficient",
       appConfig.clusterCoefficient).set(
       "spark.bandits.driftDetectionRate",
-      "1s").set(
+      appConfig.driftDetectionRate).set(
       "spark.bandits.driftCoefficient",
-      "1000.0")
+      appConfig.driftCoefficient)
     conf.setIfMissing("spark.master", "local[4]")
     val sc = new SparkContext(conf)
     run(sc, appConfig)
