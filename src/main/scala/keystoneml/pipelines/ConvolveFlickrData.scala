@@ -480,7 +480,11 @@ object ConvolveFlickrData extends Serializable with Logging {
       "spark.bandits.communicationRate",
       appConfig.communicationRate).set(
       "spark.bandits.clusterCoefficient",
-      appConfig.clusterCoefficient)
+      appConfig.clusterCoefficient).set(
+      "spark.bandits.driftDetectionRate",
+      "1s").set(
+      "spark.bandits.driftCoefficient",
+      "0.1")
     conf.setIfMissing("spark.master", "local[4]")
     val sc = new SparkContext(conf)
     run(sc, appConfig)
