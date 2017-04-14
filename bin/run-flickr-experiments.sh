@@ -8,7 +8,7 @@ declare -a DISTRIBUTED_SETTINGS=("")
 #declare -a WARMUP_SETTINGS=("" "--warmup 5")
 declare -a WARMUP_SETTINGS=("--warmup 5")
 NONSTATIONARY_SETTINGS="stationary sort_partitions sort random_walk,0.05 global_random_walk,0.05" #("--nonstationarity sort_partitions" "--nonstationarity global_random_walk,0.05") #"--nonstationarity sort" "--nonstationarity random_walk,0.05" "--nonstationarity periodic") #NONSTATIONARY_SETTINGS=("" "--nonstationarity sort" "--nonstationarity periodic" "--nonstationarity sort_partition" "--nonstationarity random_walk,0.05" )
-CLUSTER_COEFFICIENT_SETTINGS="10000, 1.0, 0.5, 0.1, 0" #"5,3 5,3:5,20:8,30:24,5:25,1"
+CLUSTER_COEFFICIENT_SETTINGS="10000 1.0 0.5 0.1 0" #"5,3 5,3:5,20:8,30:24,5:25,1"
 
 PATCH_SETTINGS="5,3:5,20:8,30:24,5:25,1" #"5,3 5,3:5,20:8,30:24,5:25,1"
 CROP_SETTINGS="0,0,0.5,0.5" #"0,0,0.5,0.5:0,0.5,0.5,1.0:0.5,0,1,0.5:0.5,0.5,1,1"

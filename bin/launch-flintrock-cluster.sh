@@ -10,7 +10,7 @@ BANDITS_CLUSTER="${BANDITS_CLUSTER:-bandits-cluster}"
 flintrock launch $BANDITS_CLUSTER \
     --spark-version "" \
     --spark-git-repository https://github.com/tomerk/spark.git \
-    --spark-git-commit 6f220ca34244ca9f7fd9d08fcade2e4e4c569125 \
+    --spark-git-commit 0413f6dba13c452ad3de69cab16256ee35bfd225 \
     --ec2-instance-type r3.xlarge \
     --ec2-spot-price 0.50 \
     --num-slaves 8
