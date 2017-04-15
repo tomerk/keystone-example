@@ -421,12 +421,12 @@ object ConvolveFlickrData extends Serializable with Logging {
             val action = bandit.applyAndOutputReward(task)._2
             val endTime = System.nanoTime()
 
-            s"$pid,$index,${task.id},${task.image.metadata.xDim},${task.image.metadata.yDim},${task.filters.rows},${task.filters.cols},$startTime,$endTime,${action.arm},${action.reward}"
+            s"$pid,$index,${task.id},${task.image.metadata.xDim},${task.image.metadata.yDim},${task.filters.rows},${task.filters.cols},$startTime,$endTime,${action.arm},${action.reward},\"${conf.outputLocation}\""
         }
     }.collect()
 
     val writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(conf.outputLocation)))
-    writer.write("partition_id,pos_in_partition,canonical_tuple_id,img_x_dim,img_y_dim,filter_rows,filter_cols,system_nano_start_time,system_nano_end_time,arm,reward\n")
+    writer.write("partition_id,pos_in_partition,canonical_tuple_id,img_x_dim,img_y_dim,filter_rows,filter_cols,system_nano_start_time,system_nano_end_time,arm,reward,policy\n")
     for (x <- banditResults) {
       writer.write(x + "\n")
     }
