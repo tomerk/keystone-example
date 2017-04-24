@@ -62,8 +62,8 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
       "please modify the value of dataLocation to point to your local TPCDS data")
     val tableSizes = setupTables(spark, dataLocation)
     queries.foreach { name =>
-      val queryString = fileToString(new File(Thread.currentThread().getContextClassLoader
-        .getResource(s"tpcds/$name.sql").getFile))
+      val queryString = scala.io.Source.fromInputStream(Thread.currentThread().getContextClassLoader
+        .getResourceAsStream(s"tpcds/$name.sql")).mkString
 
       val startTime = System.currentTimeMillis()
       spark.sql(queryString).collect()
