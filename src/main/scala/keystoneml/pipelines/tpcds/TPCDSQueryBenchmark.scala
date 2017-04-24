@@ -17,17 +17,13 @@
 
 package keystoneml.pipelines.tpcds
 
-import java.io.File
+import java.io.{File, Serializable}
 
 import keystoneml.pipelines.Logging
-import org.apache.spark.SparkConf
+import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
-import org.apache.spark.sql.catalyst.expressions.SubqueryExpression
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.util._
-import org.apache.spark.util.Benchmark
+import scopt.OptionParser
 
 /**
  * Benchmark to measure TPCDS query performance.
@@ -108,37 +104,62 @@ object TPCDSQueryBenchmark extends Logging {
   }
 }
 
-object TPCDSDataGen {
-  val conf =
-    new SparkConf()
-      .setMaster("local[4]")
-      .setAppName("tpcds-data-gen")
-      .set("spark.sql.parquet.compression.codec", "snappy")
-      .set("spark.driver.memory", "3g")
-      .set("spark.executor.memory", "3g")
+object TPCDSDataGen extends Serializable with Logging {
+  val appName = "tpcds-data-gen"
 
-  val spark = SparkSession.builder.config(conf).getOrCreate()
+  case class PipelineConfig(
+                             dsdgenLocation: String = "",
+                             outputLocation: String = "",
+                             numParts: Int = 64)
 
-  def main(args: Array[String]): Unit = {
-    val dsdgenDir = "/Users/tomerk11/Development/tpcds-kit/tools"
+  def parse(args: Array[String]): PipelineConfig = new OptionParser[PipelineConfig](appName) {
+    head(appName, "0.1")
+    help("help") text("prints this usage text")
+    opt[String]("dsdgenLocation") required() action { (x,c) => c.copy(dsdgenLocation=x) }
+    opt[String]("outputLocation") required() action { (x,c) => c.copy(outputLocation=x) }
+    opt[Int]("numParts") action { (x,c) => c.copy(numParts=x) }
+  }.parse(args, PipelineConfig()).get
+
+  /**
+   * Generate the data
+   */
+  def run(sc: SparkContext, spark: SparkSession, conf: PipelineConfig): Unit = {
     val scaleFactor = 5
     // Tables in TPC-DS benchmark used by experiments.
     // dsdgenDir is the location of dsdgen tool installed in your machines.
-    val tables = new Tables(spark.sqlContext, dsdgenDir, scaleFactor)
+    val tables = new Tables(spark.sqlContext, conf.dsdgenLocation, scaleFactor)
     // Generate data.
-    tables.genData("/Users/tomerk11/Desktop/tpcds-data",
+    tables.genData(conf.outputLocation,
       "parquet",
       true,
       true,
       true,
       false,
       false,
-      numPartitions = 16)
+      numPartitions = conf.numParts)
     // Create metastore tables in a specified database for your data.
     // Once tables are created, the current database will be switched to the specified database.
     //tables.createExternalTables(location, format, databaseName, overwrite)
     // Or, if you want to create temporary tables
     //tables.createTemporaryTables(location, format)
     // Setup TPC-DS experiment
+  }
+  /**
+   * The actual driver receives its configuration parameters from spark-submit usually.
+   *
+   * @param args
+   */
+  def main(args: Array[String]) = {
+    val appConfig = parse(args)
+
+    val conf = new SparkConf().setAppName(s"$appName")
+      .set("spark.sql.parquet.compression.codec", "snappy")
+    conf.setIfMissing("spark.master", "local[4]")
+    val sc = new SparkContext(conf)
+    val spark = SparkSession.builder.config(conf).getOrCreate()
+
+    run(sc, spark, appConfig)
+
+    sc.stop()
   }
 }
