@@ -35,12 +35,16 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
 
   case class PipelineConfig(
                              dataLocation: String = "",
+                             codeGen: String = "false",
+                             shufflePartitions: Int = 16,
                              numParts: Int = 64)
 
   def parse(args: Array[String]): PipelineConfig = new OptionParser[PipelineConfig](appName) {
     head(appName, "0.1")
     help("help") text("prints this usage text")
     opt[String]("dataLocation") required() action { (x,c) => c.copy(dataLocation=x) }
+    opt[String]("codeGen") action { (x,c) => c.copy(codeGen=x) }
+    opt[Int]("shufflePartitions") action { (x,c) => c.copy(shufflePartitions=x) }
     opt[Int]("numParts") action { (x,c) => c.copy(numParts=x) }
   }.parse(args, PipelineConfig()).get
 
@@ -107,10 +111,8 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
 
     val conf = new SparkConf().setAppName(s"$appName")
       .set("spark.sql.parquet.compression.codec", "snappy")
-      .set("spark.sql.shuffle.partitions", "16")
-      .set("spark.driver.memory", "3g")
-      .set("spark.executor.memory", "3g")
-      //.set("spark.sql.codegen.wholeStage", "false")
+      .set("spark.sql.shuffle.partitions", appConfig.shufflePartitions.toString)
+      .set("spark.sql.codegen.wholeStage", appConfig.codeGen)
       .set("spark.sql.autoBroadcastJoinThreshold", (20 * 1024 * 1024).toString)
 
     conf.setIfMissing("spark.master", "local[4]")
