@@ -30,19 +30,19 @@ import scopt.OptionParser
  * To run this:
  *  spark-submit --class <this class> --jars <spark sql test jar>
  */
-object TPCDSQueryBenchmark extends Logging {
-  val conf =
-    new SparkConf()
-      .setMaster("local[4]")
-      .setAppName("test-sql-context")
-      .set("spark.sql.parquet.compression.codec", "snappy")
-      .set("spark.sql.shuffle.partitions", "16")
-      .set("spark.driver.memory", "3g")
-      .set("spark.executor.memory", "3g")
-        //.set("spark.sql.codegen.wholeStage", "false")
-      .set("spark.sql.autoBroadcastJoinThreshold", (20 * 1024 * 1024).toString)
+object TPCDSQueryBenchmark extends Serializable with Logging {
+  val appName = "tpcds-queries"
 
-  val spark = SparkSession.builder.config(conf).getOrCreate()
+  case class PipelineConfig(
+                             dataLocation: String = "",
+                             numParts: Int = 64)
+
+  def parse(args: Array[String]): PipelineConfig = new OptionParser[PipelineConfig](appName) {
+    head(appName, "0.1")
+    help("help") text("prints this usage text")
+    opt[String]("dataLocation") required() action { (x,c) => c.copy(dataLocation=x) }
+    opt[Int]("numParts") action { (x,c) => c.copy(numParts=x) }
+  }.parse(args, PipelineConfig()).get
 
   val tables = Seq("catalog_page", "catalog_returns", "customer", "customer_address",
     "customer_demographics", "date_dim", "household_demographics", "inventory", "item",
@@ -50,17 +50,17 @@ object TPCDSQueryBenchmark extends Logging {
     "web_returns", "web_site", "reason", "call_center", "warehouse", "ship_mode", "income_band",
     "time_dim", "web_page")
 
-  def setupTables(dataLocation: String): Map[String, Long] = {
+  def setupTables(spark: SparkSession, dataLocation: String): Map[String, Long] = {
     tables.map { tableName =>
       spark.read.parquet(s"$dataLocation/$tableName").createOrReplaceTempView(tableName)
       tableName -> spark.table(tableName).count()
     }.toMap
   }
 
-  def tpcdsAll(dataLocation: String, queries: Seq[String]): Unit = {
+  def tpcdsAll(spark: SparkSession, dataLocation: String, queries: Seq[String]): Unit = {
     require(dataLocation.nonEmpty,
       "please modify the value of dataLocation to point to your local TPCDS data")
-    val tableSizes = setupTables(dataLocation)
+    val tableSizes = setupTables(spark, dataLocation)
     queries.foreach { name =>
       val queryString = fileToString(new File(Thread.currentThread().getContextClassLoader
         .getResource(s"tpcds/$name.sql").getFile))
@@ -73,7 +73,7 @@ object TPCDSQueryBenchmark extends Logging {
     }
   }
 
-  def main(args: Array[String]): Unit = {
+  def run(sc: SparkContext, spark: SparkSession, conf: PipelineConfig): Unit = {
 
     // List of all TPC-DS queries
     val tpcdsQueries = Seq("q49", "q72", "q75", "q78", "q80", "q93") //q72 is slow on hash
@@ -94,14 +94,34 @@ object TPCDSQueryBenchmark extends Logging {
       "q81", "q82", "q83", "q84", "q85", "q86", "q87", "q88", "q89", "q90",
       "q91", "q92", "q93", "q94", "q95", "q96", "q97", "q98", "q99")*/
 
-    // In order to run this benchmark, please follow the instructions at
-    // https://github.com/databricks/spark-sql-perf/blob/master/README.md to generate the TPCDS data
-    // locally (preferably with a scale factor of 5 for benchmarking). Thereafter, the value of
-    // dataLocation below needs to be set to the location where the generated data is stored.
-    val dataLocation = "/Users/tomerk11/Desktop/tpcds-data"
-
-    tpcdsAll(dataLocation, queries = tpcdsQueries)
+    tpcdsAll(spark, conf.dataLocation, queries = tpcdsQueries)
   }
+
+  /**
+   * The actual driver receives its configuration parameters from spark-submit usually.
+   *
+   * @param args
+   */
+  def main(args: Array[String]) = {
+    val appConfig = parse(args)
+
+    val conf = new SparkConf().setAppName(s"$appName")
+      .set("spark.sql.parquet.compression.codec", "snappy")
+      .set("spark.sql.shuffle.partitions", "16")
+      .set("spark.driver.memory", "3g")
+      .set("spark.executor.memory", "3g")
+      //.set("spark.sql.codegen.wholeStage", "false")
+      .set("spark.sql.autoBroadcastJoinThreshold", (20 * 1024 * 1024).toString)
+
+    conf.setIfMissing("spark.master", "local[4]")
+    val sc = new SparkContext(conf)
+    val spark = SparkSession.builder.config(conf).getOrCreate()
+
+    run(sc, spark, appConfig)
+
+    sc.stop()
+  }
+
 }
 
 object TPCDSDataGen extends Serializable with Logging {
@@ -146,6 +166,7 @@ object TPCDSDataGen extends Serializable with Logging {
     //tables.createTemporaryTables(location, format)
     // Setup TPC-DS experiment
   }
+
   /**
    * The actual driver receives its configuration parameters from spark-submit usually.
    *
