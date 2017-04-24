@@ -110,6 +110,7 @@ object TPCDSDataGen extends Serializable with Logging {
   case class PipelineConfig(
                              dsdgenLocation: String = "",
                              outputLocation: String = "",
+                             scaleFactor: Int = 1,
                              numParts: Int = 64)
 
   def parse(args: Array[String]): PipelineConfig = new OptionParser[PipelineConfig](appName) {
@@ -117,6 +118,7 @@ object TPCDSDataGen extends Serializable with Logging {
     help("help") text("prints this usage text")
     opt[String]("dsdgenLocation") required() action { (x,c) => c.copy(dsdgenLocation=x) }
     opt[String]("outputLocation") required() action { (x,c) => c.copy(outputLocation=x) }
+    opt[Int]("scaleFactor") action { (x,c) => c.copy(scaleFactor=x) }
     opt[Int]("numParts") action { (x,c) => c.copy(numParts=x) }
   }.parse(args, PipelineConfig()).get
 
@@ -124,7 +126,7 @@ object TPCDSDataGen extends Serializable with Logging {
    * Generate the data
    */
   def run(sc: SparkContext, spark: SparkSession, conf: PipelineConfig): Unit = {
-    val scaleFactor = 5
+    val scaleFactor = conf.scaleFactor
     // Tables in TPC-DS benchmark used by experiments.
     // dsdgenDir is the location of dsdgen tool installed in your machines.
     val tables = new Tables(spark.sqlContext, conf.dsdgenLocation, scaleFactor)
