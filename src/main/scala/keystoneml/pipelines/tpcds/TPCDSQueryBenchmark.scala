@@ -117,13 +117,13 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
   def run(sc: SparkContext, spark: SparkSession, conf: PipelineConfig): Unit = {
 
     // List of all TPC-DS queries
-    val tpcdsQueries = Seq("q49", "q72", "q75", "q78", "q80", "q93") //q72 is slow on hash
+    //val tpcdsQueries = Seq("q49", "q72", "q75", "q78", "q80", "q93") //q72 is slow on hash
     // "q77" gives error
     // "q5" and "q40" are only broadcast joins w/ the current scale factor of 5 & 16 partitions
     // "q51" and "q97" don't support hash joins because not a hashable relation
     // All the other queries don't support joins
 
-    /*Seq(
+    val tpcdsQueries =Seq(
       "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10", "q11",
       "q12", "q13", "q14a", "q14b", "q15", "q16", "q17", "q18", "q19", "q20",
       "q21", "q22", "q23a", "q23b", "q24a", "q24b", "q25", "q26", "q27", "q28", "q29", "q30",
@@ -133,7 +133,7 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
       "q61", "q62", "q63", "q64", "q65", "q66", "q67", "q68", "q69", "q70",
       "q71", "q72", "q73", "q74", "q75", "q76", "q77", "q78", "q79", "q80",
       "q81", "q82", "q83", "q84", "q85", "q86", "q87", "q88", "q89", "q90",
-      "q91", "q92", "q93", "q94", "q95", "q96", "q97", "q98", "q99")*/
+      "q91", "q92", "q93", "q94", "q95", "q96", "q97", "q98", "q99")
 
     tpcdsAll(spark, conf.dataLocation, queries = tpcdsQueries)
   }
