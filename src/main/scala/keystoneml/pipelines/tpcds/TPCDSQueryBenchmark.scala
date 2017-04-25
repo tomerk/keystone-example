@@ -61,7 +61,7 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
   def setupTables(spark: SparkSession, dataLocation: String): Map[String, Long] = {
     tables.map { tableName =>
       spark.read.parquet(s"$dataLocation/$tableName").createOrReplaceTempView(tableName)
-      spark.sqlContext.cacheTable(tableName)
+      //spark.sqlContext.cacheTable(tableName)
       tableName -> spark.table(tableName).count()
     }.toMap
   }
