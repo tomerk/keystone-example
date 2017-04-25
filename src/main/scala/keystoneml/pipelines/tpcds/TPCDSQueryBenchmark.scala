@@ -22,6 +22,10 @@ import java.io.{File, Serializable}
 import keystoneml.pipelines.Logging
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.catalyst.TableIdentifier
+import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
+import org.apache.spark.sql.catalyst.expressions.SubqueryExpression
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.util._
 import scopt.OptionParser
 
@@ -66,16 +70,78 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
     require(dataLocation.nonEmpty,
       "please modify the value of dataLocation to point to your local TPCDS data")
     val tableSizes = setupTables(spark, dataLocation)
+    spark.sqlContext.setConf("spark.sql.shuffle.partitions", "200")
     queries.foreach { name =>
       val queryString = scala.io.Source.fromInputStream(Thread.currentThread().getContextClassLoader
         .getResourceAsStream(s"tpcds/$name.sql")).mkString
+
+      // This is an indirect hack to estimate the size of each query's input by traversing the
+      // logical plan and adding up the sizes of all tables that appear in the plan. Note that this
+      // currently doesn't take WITH subqueries into account which might lead to fairly inaccurate
+      // per-row processing time for those cases.
+      val queryRelations = scala.collection.mutable.HashSet[String]()
+      spark.sql(queryString).queryExecution.logical.map {
+        case ur @ UnresolvedRelation(t: TableIdentifier, _) =>
+          queryRelations.add(t.table)
+        case lp: LogicalPlan =>
+          lp.expressions.foreach { _ foreach {
+            case subquery: SubqueryExpression =>
+              subquery.plan.foreach {
+                case ur @ UnresolvedRelation(t: TableIdentifier, _) =>
+                  queryRelations.add(t.table)
+                case _ =>
+              }
+            case _ =>
+          }
+          }
+        case _ =>
+      }
+      val numRows = queryRelations.map(tableSizes.getOrElse(_, 0L)).sum
+
 
       val startTime = System.currentTimeMillis()
       spark.sql(queryString).collect()
       val totalTime = System.currentTimeMillis() - startTime
 
-      logInfo(s"Query $name took $totalTime ms")
+      logInfo(s"Query $name took $totalTime ms (and had $numRows rows of input)")
     }
+
+    spark.sqlContext.setConf("spark.sql.shuffle.partitions", "16")
+    queries.foreach { name =>
+      val queryString = scala.io.Source.fromInputStream(Thread.currentThread().getContextClassLoader
+        .getResourceAsStream(s"tpcds/$name.sql")).mkString
+
+      // This is an indirect hack to estimate the size of each query's input by traversing the
+      // logical plan and adding up the sizes of all tables that appear in the plan. Note that this
+      // currently doesn't take WITH subqueries into account which might lead to fairly inaccurate
+      // per-row processing time for those cases.
+      val queryRelations = scala.collection.mutable.HashSet[String]()
+      spark.sql(queryString).queryExecution.logical.map {
+        case ur @ UnresolvedRelation(t: TableIdentifier, _) =>
+          queryRelations.add(t.table)
+        case lp: LogicalPlan =>
+          lp.expressions.foreach { _ foreach {
+            case subquery: SubqueryExpression =>
+              subquery.plan.foreach {
+                case ur @ UnresolvedRelation(t: TableIdentifier, _) =>
+                  queryRelations.add(t.table)
+                case _ =>
+              }
+            case _ =>
+          }
+          }
+        case _ =>
+      }
+      val numRows = queryRelations.map(tableSizes.getOrElse(_, 0L)).sum
+
+
+      val startTime = System.currentTimeMillis()
+      spark.sql(queryString).collect()
+      val totalTime = System.currentTimeMillis() - startTime
+
+      logInfo(s"Query $name took $totalTime ms (and had $numRows rows of input)")
+    }
+
   }
 
   def run(sc: SparkContext, spark: SparkSession, conf: PipelineConfig): Unit = {
@@ -127,65 +193,4 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
 
 }
 
-object TPCDSDataGen extends Serializable with Logging {
-  val appName = "tpcds-data-gen"
 
-  case class PipelineConfig(
-                             dsdgenLocation: String = "",
-                             outputLocation: String = "",
-                             scaleFactor: Int = 1,
-                             numParts: Int = 64)
-
-  def parse(args: Array[String]): PipelineConfig = new OptionParser[PipelineConfig](appName) {
-    head(appName, "0.1")
-    help("help") text("prints this usage text")
-    opt[String]("dsdgenLocation") required() action { (x,c) => c.copy(dsdgenLocation=x) }
-    opt[String]("outputLocation") required() action { (x,c) => c.copy(outputLocation=x) }
-    opt[Int]("scaleFactor") action { (x,c) => c.copy(scaleFactor=x) }
-    opt[Int]("numParts") action { (x,c) => c.copy(numParts=x) }
-  }.parse(args, PipelineConfig()).get
-
-  /**
-   * Generate the data
-   */
-  def run(sc: SparkContext, spark: SparkSession, conf: PipelineConfig): Unit = {
-    val scaleFactor = conf.scaleFactor
-    // Tables in TPC-DS benchmark used by experiments.
-    // dsdgenDir is the location of dsdgen tool installed in your machines.
-    val tables = new Tables(spark.sqlContext, conf.dsdgenLocation, scaleFactor)
-    // Generate data.
-    tables.genData(conf.outputLocation,
-      "parquet",
-      true,
-      true,
-      true,
-      false,
-      false,
-      numPartitions = conf.numParts)
-    // Create metastore tables in a specified database for your data.
-    // Once tables are created, the current database will be switched to the specified database.
-    //tables.createExternalTables(location, format, databaseName, overwrite)
-    // Or, if you want to create temporary tables
-    //tables.createTemporaryTables(location, format)
-    // Setup TPC-DS experiment
-  }
-
-  /**
-   * The actual driver receives its configuration parameters from spark-submit usually.
-   *
-   * @param args
-   */
-  def main(args: Array[String]) = {
-    val appConfig = parse(args)
-
-    val conf = new SparkConf().setAppName(s"$appName")
-      .set("spark.sql.parquet.compression.codec", "snappy")
-    conf.setIfMissing("spark.master", "local[4]")
-    val sc = new SparkContext(conf)
-    val spark = SparkSession.builder.config(conf).getOrCreate()
-
-    run(sc, spark, appConfig)
-
-    sc.stop()
-  }
-}
