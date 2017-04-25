@@ -70,78 +70,45 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
     require(dataLocation.nonEmpty,
       "please modify the value of dataLocation to point to your local TPCDS data")
     val tableSizes = setupTables(spark, dataLocation)
-    spark.sqlContext.setConf("spark.sql.shuffle.partitions", "200")
-    queries.foreach { name =>
-      val queryString = scala.io.Source.fromInputStream(Thread.currentThread().getContextClassLoader
-        .getResourceAsStream(s"tpcds/$name.sql")).mkString
+    Seq("8, 16, 32, 64, 128, 256, 1024, 2048").foreach { numPartitionString =>
+      spark.sqlContext.setConf("spark.sql.shuffle.partitions", numPartitionString)
+      logInfo(s"About to use $numPartitionString")
+      queries.foreach { name =>
+        val queryString = scala.io.Source.fromInputStream(Thread.currentThread().getContextClassLoader
+          .getResourceAsStream(s"tpcds/$name.sql")).mkString
 
-      // This is an indirect hack to estimate the size of each query's input by traversing the
-      // logical plan and adding up the sizes of all tables that appear in the plan. Note that this
-      // currently doesn't take WITH subqueries into account which might lead to fairly inaccurate
-      // per-row processing time for those cases.
-      val queryRelations = scala.collection.mutable.HashSet[String]()
-      spark.sql(queryString).queryExecution.logical.map {
-        case ur @ UnresolvedRelation(t: TableIdentifier, _) =>
-          queryRelations.add(t.table)
-        case lp: LogicalPlan =>
-          lp.expressions.foreach { _ foreach {
-            case subquery: SubqueryExpression =>
-              subquery.plan.foreach {
-                case ur @ UnresolvedRelation(t: TableIdentifier, _) =>
-                  queryRelations.add(t.table)
+        // This is an indirect hack to estimate the size of each query's input by traversing the
+        // logical plan and adding up the sizes of all tables that appear in the plan. Note that this
+        // currently doesn't take WITH subqueries into account which might lead to fairly inaccurate
+        // per-row processing time for those cases.
+        val queryRelations = scala.collection.mutable.HashSet[String]()
+        spark.sql(queryString).queryExecution.logical.map {
+          case ur@UnresolvedRelation(t: TableIdentifier, _) =>
+            queryRelations.add(t.table)
+          case lp: LogicalPlan =>
+            lp.expressions.foreach {
+              _ foreach {
+                case subquery: SubqueryExpression =>
+                  subquery.plan.foreach {
+                    case ur@UnresolvedRelation(t: TableIdentifier, _) =>
+                      queryRelations.add(t.table)
+                    case _ =>
+                  }
                 case _ =>
               }
-            case _ =>
-          }
-          }
-        case _ =>
+            }
+          case _ =>
+        }
+        val numRows = queryRelations.map(tableSizes.getOrElse(_, 0L)).sum
+
+
+        val startTime = System.currentTimeMillis()
+        spark.sql(queryString).collect()
+        val totalTime = System.currentTimeMillis() - startTime
+
+        logInfo(s"Query $name took $totalTime ms (and had $numRows rows of input)")
       }
-      val numRows = queryRelations.map(tableSizes.getOrElse(_, 0L)).sum
-
-
-      val startTime = System.currentTimeMillis()
-      spark.sql(queryString).collect()
-      val totalTime = System.currentTimeMillis() - startTime
-
-      logInfo(s"Query $name took $totalTime ms (and had $numRows rows of input)")
     }
-
-    spark.sqlContext.setConf("spark.sql.shuffle.partitions", "16")
-    queries.foreach { name =>
-      val queryString = scala.io.Source.fromInputStream(Thread.currentThread().getContextClassLoader
-        .getResourceAsStream(s"tpcds/$name.sql")).mkString
-
-      // This is an indirect hack to estimate the size of each query's input by traversing the
-      // logical plan and adding up the sizes of all tables that appear in the plan. Note that this
-      // currently doesn't take WITH subqueries into account which might lead to fairly inaccurate
-      // per-row processing time for those cases.
-      val queryRelations = scala.collection.mutable.HashSet[String]()
-      spark.sql(queryString).queryExecution.logical.map {
-        case ur @ UnresolvedRelation(t: TableIdentifier, _) =>
-          queryRelations.add(t.table)
-        case lp: LogicalPlan =>
-          lp.expressions.foreach { _ foreach {
-            case subquery: SubqueryExpression =>
-              subquery.plan.foreach {
-                case ur @ UnresolvedRelation(t: TableIdentifier, _) =>
-                  queryRelations.add(t.table)
-                case _ =>
-              }
-            case _ =>
-          }
-          }
-        case _ =>
-      }
-      val numRows = queryRelations.map(tableSizes.getOrElse(_, 0L)).sum
-
-
-      val startTime = System.currentTimeMillis()
-      spark.sql(queryString).collect()
-      val totalTime = System.currentTimeMillis() - startTime
-
-      logInfo(s"Query $name took $totalTime ms (and had $numRows rows of input)")
-    }
-
   }
 
   def run(sc: SparkContext, spark: SparkSession, conf: PipelineConfig): Unit = {
