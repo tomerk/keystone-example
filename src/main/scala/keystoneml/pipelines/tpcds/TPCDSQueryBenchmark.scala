@@ -70,7 +70,7 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
     require(dataLocation.nonEmpty,
       "please modify the value of dataLocation to point to your local TPCDS data")
     val tableSizes = setupTables(spark, dataLocation)
-    Seq("8, 16, 32, 64, 128, 256, 1024, 2048").foreach { numPartitionString =>
+    Seq("8", "16", "32", "64", "128", "256", "1024", "2048").foreach { numPartitionString =>
       spark.sqlContext.setConf("spark.sql.shuffle.partitions", numPartitionString)
       logInfo(s"About to use $numPartitionString")
       queries.foreach { name =>
