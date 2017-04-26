@@ -1,5 +1,7 @@
 #!/bin/bash
 BANDITS_CLUSTER="${BANDITS_CLUSTER:-bandits-cluster}"
+NUM_PARTS=32
+KEYSTONE_MEM=20g
 
 # Install the tpcds data gen kit
 flintrock run-command $BANDITS_CLUSTER "
@@ -16,4 +18,14 @@ mv Makefile.suite Makefile
 make dsdgen
 "
 
-flintrock run-command --master-only $BANDITS_CLUSTER "./keystone-example/bin/on-cluster/prep-tpcds-data.sh"
+#flintrock run-command --master-only $BANDITS_CLUSTER "./keystone-example/bin/on-cluster/prep-tpcds-data.sh"
+
+flintrock run-command --master-only $BANDITS_CLUSTER "
+cd keystone-example
+KEYSTONE_MEM=$KEYSTONE_MEM ./bin/run-pipeline.sh \
+  keystoneml.pipelines.tpcds.TPCDSDataGen \
+  --dsdgenLocation /home/ec2-user/tpcds-kit/tools \
+  --outputLocation /tpcds \
+  --numParts $NUM_PARTS \
+  --scaleFactor 5
+"
