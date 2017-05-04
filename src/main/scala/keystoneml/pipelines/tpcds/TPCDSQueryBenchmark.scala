@@ -47,6 +47,7 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
                              dataLocation: String = "",
                              outputLocation: String = "",
                              queryGenRules: String = "q49,q72,q75,q78,q80,q93",
+                             cacheTables: Boolean = false,
                              confSettings: Array[Array[SparkSetting]] = Array(Array()),
                              policy: String = "",
                              nonstationarity: String = "stationary",
@@ -69,6 +70,7 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
     opt[String]("outputLocation") required() action { (x,c) => c.copy(outputLocation=x) }
     opt[String]("policy") required() action { (x,c) => c.copy(policy=x) }
     opt[String]("queries") action { (x,c) => c.copy(queryGenRules=x) }
+    opt[Boolean]("cacheTables") action { (x,c) => c.copy(cacheTables=x) }
     opt[String]("confSettings") action { (x,c) => c.copy(confSettings=x.split('-').map{
       x => x.split(',').map {
         setting =>
@@ -89,16 +91,18 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
     "web_returns", "web_site", "reason", "call_center", "warehouse", "ship_mode", "income_band",
     "time_dim", "web_page")
 
-  def setupTables(spark: SparkSession, dataLocation: String): Map[String, Long] = {
+  def setupTables(spark: SparkSession, dataLocation: String, cacheTables: Boolean): Map[String, Long] = {
     tables.map { tableName =>
       spark.read.parquet(s"$dataLocation/$tableName").createOrReplaceTempView(tableName)
-      //spark.sqlContext.cacheTable(tableName)
+      if (cacheTables) {
+        spark.sqlContext.cacheTable(tableName)
+      }
       tableName -> spark.table(tableName).count()
     }.toMap
   }
 
   def tpcdsAll(spark: SparkSession, dataLocation: String, queries: Seq[String]): Unit = {
-    val tableSizes = setupTables(spark, dataLocation)
+    val tableSizes = setupTables(spark, dataLocation, false)
 
     // List of all TPC-DS queries
     //val tpcdsQueries = Seq("q49", "q72", "q75", "q78", "q80", "q93") //q72 is slow on hash
@@ -272,7 +276,7 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
         throw new IllegalArgumentException(s"Invalid policy ${conf.policy}")
     }
 
-    val tableSizes = setupTables(spark, conf.dataLocation)
+    val tableSizes = setupTables(spark, conf.dataLocation, conf.cacheTables)
 
 
     val banditResults = genQueries(conf.queryGenRules).zipWithIndex.map { case (query, index) =>
