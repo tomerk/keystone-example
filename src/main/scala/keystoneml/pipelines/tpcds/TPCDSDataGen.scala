@@ -39,11 +39,11 @@ object TPCDSDataGen extends Serializable with Logging {
     // Generate data.
     tables.genData(conf.outputLocation,
       "parquet",
-      true,
-      true,
-      true,
-      false,
-      false,
+      overwrite = true,
+      partitionTables = false,
+      useDoubleForDecimal = true,
+      clusterByPartitionColumns = false,
+      filterOutNullPartitionValues = false,
       numPartitions = conf.numParts)
     // Create metastore tables in a specified database for your data.
     // Once tables are created, the current database will be switched to the specified database.
