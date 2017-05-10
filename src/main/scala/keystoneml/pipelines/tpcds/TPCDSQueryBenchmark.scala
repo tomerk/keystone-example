@@ -307,7 +307,9 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
 
     val conf = new SparkConf().setAppName(s"$appName")
       .set("spark.sql.parquet.compression.codec", "snappy")
-      .set("spark.sql.autoBroadcastJoinThreshold", (20 * 1024 * 1024).toString)
+      .set("spark.bandits.driftDetectionRate", "99999999s")
+      .set("spark.bandits.alwaysShare", "true")
+      .set("spark.bandits.communicationRate", "500ms")
 
     conf.setIfMissing("spark.master", "local[4]")
     val sc = new SparkContext(conf)
