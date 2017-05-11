@@ -121,6 +121,7 @@ class Tables(sqlContext: SQLContext, dsdgenDir: String, scaleFactor: Int) extend
         location: String,
         format: String,
         overwrite: Boolean,
+        partitionByColumns: Boolean,
         clusterByPartitionColumns: Boolean,
         filterOutNullPartitionValues: Boolean,
         numPartitions: Int): Unit = {
@@ -163,7 +164,7 @@ class Tables(sqlContext: SQLContext, dsdgenDir: String, scaleFactor: Int) extend
         data.coalesce(1).write
       }
       writer.format(format).mode(mode)
-      if (partitionColumns.nonEmpty) {
+      if (partitionColumns.nonEmpty && partitionByColumns) {
         writer.partitionBy(partitionColumns : _*)
       }
       logInfo(s"Generating table $name in database to $location with save mode $mode.")
@@ -196,6 +197,7 @@ class Tables(sqlContext: SQLContext, dsdgenDir: String, scaleFactor: Int) extend
       overwrite: Boolean,
       partitionTables: Boolean,
       useDoubleForDecimal: Boolean,
+      partitionByColumns: Boolean,
       clusterByPartitionColumns: Boolean,
       filterOutNullPartitionValues: Boolean,
       tableFilter: String = "",
@@ -221,8 +223,8 @@ class Tables(sqlContext: SQLContext, dsdgenDir: String, scaleFactor: Int) extend
 
     withSpecifiedDataType.foreach { table =>
       val tableLocation = s"$location/${table.name}"
-      table.genData(tableLocation, format, overwrite, clusterByPartitionColumns,
-        filterOutNullPartitionValues, numPartitions)
+      table.genData(tableLocation, format, overwrite, partitionByColumns,
+        clusterByPartitionColumns, filterOutNullPartitionValues, numPartitions)
     }
   }
 

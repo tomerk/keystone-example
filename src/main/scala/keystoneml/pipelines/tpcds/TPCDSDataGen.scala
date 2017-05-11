@@ -40,8 +40,9 @@ object TPCDSDataGen extends Serializable with Logging {
     tables.genData(conf.outputLocation,
       "parquet",
       overwrite = true,
-      partitionTables = false,
+      partitionTables = true,
       useDoubleForDecimal = true,
+      partitionByColumns = false,
       clusterByPartitionColumns = false,
       filterOutNullPartitionValues = false,
       numPartitions = conf.numParts)
