@@ -6,6 +6,7 @@
 #fi
 
 BANDITS_CLUSTER="${BANDITS_CLUSTER:-bandits-cluster}"
+CLUSTER_SIZE="${CLUSTER_SIZE:-8}"
 
 flintrock launch $BANDITS_CLUSTER \
     --spark-version "" \
@@ -13,7 +14,7 @@ flintrock launch $BANDITS_CLUSTER \
     --spark-git-commit 572c7ac041c4e390352db6dc3946c896526b8bce \
     --ec2-instance-type r3.xlarge \
     --ec2-spot-price 0.50 \
-    --num-slaves 8
+    --num-slaves $CLUSTER_SIZE
 
 flintrock run-command $BANDITS_CLUSTER 'sudo yum update -y'
 
