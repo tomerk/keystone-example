@@ -2,7 +2,7 @@
 BANDITS_CLUSTER="${BANDITS_CLUSTER:-bandits-cluster}"
 NUM_PARTS=128
 KEYSTONE_MEM=20g
-SCALE_FACTORS="200"
+SCALE_FACTORS="100"
 
 # Install the tpcds data gen kit
 flintrock run-command $BANDITS_CLUSTER "
