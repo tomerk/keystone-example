@@ -38,7 +38,7 @@ object RegexFactoryContainer extends Serializable {
 
   //  http://regexr.com
   val regexes: Seq[String] = Seq("[(http(s)?):\\/\\/(www\\.)?a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)",
-    "[a-zA-Z0-9]+(?:(\\.|_)[A-Za-z0-9!#$%&'*+/=?^`{|}~-]+)*@(?!([a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.))(?:[A-Za-z0-9](?:[a-zA-Z0-9-]*[A-Za-z0-9])?\\.)+[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?")
+    s"<(a)\\s(?:[^>]+\\s)?href" + "\\s*=\\s*(\"[^\"]*\"|'[^']*')[^>]*>")
 }
 
 case class RegexContainer(factory: Int, regexp: Int) {
