@@ -2,42 +2,111 @@ package keystoneml.pipelines
 
 import java.io._
 
+import breeze.linalg.DenseVector
+import keystoneml.bandits.{ConstantBandit, OracleBandit}
 import keystoneml.loaders.CommonCrawlLoader
-import keystoneml.utils.Image
-import keystoneml.workflow.{Identity, Pipeline}
 import net.greypanther.javaadvent.regex.Regex
 import net.greypanther.javaadvent.regex.factories._
+import org.apache.spark.bandit.BanditTrait
+import org.apache.spark.bandit.policies._
 import org.apache.spark.{Partitioner, SparkConf, SparkContext}
 import org.jsoup.Jsoup
 import scopt.OptionParser
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
+import scala.io.Source
 
-case class RegexTask(id: String, doc: String, regexOptions: Seq[Regex]) {
-  def getMatches(arm: Int): Array[String] = regexOptions(arm).getMatches(doc, Array(0)).asScala.map(_.head).toArray
+case class RegexTask(id: String, doc: String) {
+  //def getMatches(arm: Int): Array[String] = regexOptions(arm).getMatches(doc, Array(0)).asScala.map(_.head).toArray
+}
+
+abstract class RegexFeature extends Serializable {
+  def get(task: RegexTask): Double
+}
+
+object RegexFactoryContainer extends Serializable {
+  @transient lazy val factories: Seq[RegexFactory] = Seq(
+    new DkBricsAutomatonRegexFactory,
+    new JRegexFactory,
+    new OroRegexFactory,
+    new JavaUtilPatternRegexFactory
+  )
+}
+
+case class RegexContainer(factory: Int, regexp: String) {
+  @transient lazy val regex: Regex = RegexFactoryContainer.factories(factory).create(regexp)
+}
+
+case class RegexRecord(partitionId: Int,
+                          posInPartition: Int,
+                          canonicalTupleId: String,
+                          docLength: Int,
+                          reward: Double,
+                          arm: Int)
+
+case class RegexBias() extends RegexFeature {
+  override def get(task: RegexTask): Double = 1.0
+}
+case class RegexDocLength() extends RegexFeature {
+  override def get(task: RegexTask): Double = task.doc.length
 }
 
 /**
  * Extract regex from common crawl files
  */
 object CommonCrawlRegex extends Serializable with Logging {
+  def regexMatcher(factory: RegexContainer, task: RegexTask): mutable.Buffer[Array[String]] = {
+    val matcher = factory.regex
+    matcher.getMatches(task.doc, Array(0)).asScala.toBuffer
+  }
 
   val appName = "CommonCrawlRegex"
 
-  def run(sc: SparkContext, conf: PipelineConfig): Pipeline[Image, Image] = {
+  def makeFeatures(features: String): (RegexTask => DenseVector[Double], Int) = {
+    val featureList: Array[RegexFeature] = features.split(',').map {
+      case "bias" => RegexBias()
+      case "doc_length" => RegexDocLength()
+      case unknown => throw new IllegalArgumentException(s"Unknown feature $unknown")
+    }
+
+    (extractFeatures(featureList, _), featureList.length)
+  }
+
+  def extractFeatures(featureList: Array[RegexFeature], task: RegexTask): DenseVector[Double] = {
+    DenseVector(featureList.map(_.get(task)))
+  }
+
+  def minOracle(path: String): RegexTask => Int = {
+    val records = Source.fromFile(path).getLines.filter(x => !x.startsWith("partition_id")).map {
+      line =>
+        val splitLine = line.split(',')
+        RegexRecord(
+          partitionId = splitLine(0).toInt,
+          posInPartition = splitLine(1).toInt,
+          canonicalTupleId = splitLine(2),
+          docLength = splitLine(3).toInt,
+          reward = splitLine(7).toDouble,
+          arm = splitLine(6).toInt)
+    }.toSeq
+
+    val armRewards =
+    // Group by convolution id
+      records.groupBy(_.canonicalTupleId)
+        // For each convolution id, group + sum the rewards by arm
+        .mapValues(_.groupBy(_.arm).mapValues(_.map(_.reward).sum))
+
+    // we need a map identity here because a mapValues bug means this isn't serializable
+    val bestArms = armRewards.mapValues(_.maxBy(_._2)._1).map(identity)
+
+    val oracle: RegexTask => Int = task => bestArms(task.id)
+    oracle
+  }
+
+  def run(sc: SparkContext, conf: PipelineConfig): Unit = {
     //Set up some constants.
 
-    val commoncrawl = CommonCrawlLoader(sc, conf.trainLocation).repartitionAndSortWithinPartitions(
-      new Partitioner {
-      override def numPartitions = conf.numParts
-      override def getPartition(key: Any) = {
-        val id = key.asInstanceOf[String]
-        id.hashCode % conf.numParts
-      }
-    }).cache()
-
-    val numDocs = commoncrawl.count()
-    logInfo(s"loaded $numDocs docs")
 
     //val regexp = "([A-Za-z]+)" // Match all words
     val tag = "a"
@@ -63,41 +132,105 @@ object CommonCrawlRegex extends Serializable with Logging {
       //("ComBasistechTclRegexFactory", _ => new ComBasistechTclRegexFactory)
     )
 
-    val doc = commoncrawl.first()
-    factories.foreach { case (libName, factory) =>
-      val startedTime = System.currentTimeMillis()
+    //val regexes = conf.regex.split("....")
+    val regexOps: Seq[RegexTask => mutable.Buffer[Array[String]]] = RegexFactoryContainer.factories.indices.map(i => regexMatcher(RegexContainer(i, conf.regex), _: RegexTask))
 
-      val matcher = factory().create(regexp)
-      val matches = matcher.getMatches(doc._2, Array(0))
+    val bandit: BanditTrait[RegexTask, mutable.Buffer[Array[String]]] = conf.policy.trim.toLowerCase.split(':') match {
+      // Constant Policies
+      case Array("constant", arm) =>
+        new ConstantBandit(arm.toInt, regexOps(arm.toInt))
 
-      val endTime = System.currentTimeMillis()
-      logInfo(s"Finished $libName in ${endTime - startedTime} ms")
+      // Oracle Policies
+      case Array("oracle", "min", path) =>
+        new OracleBandit(minOracle(path), regexOps)
 
+      // Non-contextual policies
+      case Array("epsilon-greedy") =>
+        sc.bandit(regexOps, EpsilonGreedyPolicyParams())
+      case Array("epsilon-greedy", epsilon) =>
+        sc.bandit(regexOps, EpsilonGreedyPolicyParams(epsilon.toDouble))
+      case Array("gaussian-thompson-sampling") =>
+        sc.bandit(regexOps, GaussianThompsonSamplingPolicyParams())
+      case Array("gaussian-thompson-sampling", varMultiplier) =>
+        sc.bandit(regexOps, GaussianThompsonSamplingPolicyParams(varMultiplier.toDouble))
+      case Array("ucb1-normal") =>
+        sc.bandit(regexOps, UCB1NormalPolicyParams())
+      case Array("ucb1-normal", rewardRange) =>
+        sc.bandit(regexOps, UCB1NormalPolicyParams(rewardRange.toDouble))
+      case Array("ucb-gaussian-bayes") =>
+        sc.bandit(regexOps, GaussianBayesUCBPolicyParams())
+      case Array("ucb-gaussian-bayes", rewardRange) =>
+        sc.bandit(regexOps, GaussianBayesUCBPolicyParams(rewardRange.toDouble))
+
+      // Contextual policies
+      case Array("contextual-epsilon-greedy", featureString) =>
+        val (features, numFeatures) = makeFeatures(featureString)
+        sc.contextualBandit(regexOps, features, ContextualEpsilonGreedyPolicyParams(numFeatures))
+      case Array("contextual-epsilon-greedy", featureString, epsilon) =>
+        val (features, numFeatures) = makeFeatures(featureString)
+        sc.contextualBandit(regexOps, features, ContextualEpsilonGreedyPolicyParams(numFeatures, epsilon.toDouble))
+      case Array("linear-thompson-sampling", featureString) =>
+        val (features, numFeatures) = makeFeatures(featureString)
+        sc.contextualBandit(regexOps, features, LinThompsonSamplingPolicyParams(numFeatures, 2.0))
+      case Array("linear-thompson-sampling", featureString, useCholesky, varMultiplier) =>
+        val (features, numFeatures) = makeFeatures(featureString)
+        sc.contextualBandit(regexOps, features, LinThompsonSamplingPolicyParams(numFeatures, varMultiplier.toDouble, useCholesky = useCholesky.toBoolean))
+      case Array("lin-ucb", featureString) =>
+        val (features, numFeatures) = makeFeatures(featureString)
+        sc.contextualBandit(regexOps, features, LinUCBPolicyParams(numFeatures))
+      case Array("lin-ucb", featureString, alpha) =>
+        val (features, numFeatures) = makeFeatures(featureString)
+        sc.contextualBandit(regexOps, features, LinUCBPolicyParams(numFeatures, alpha.toDouble))
+
+      case _ =>
+        throw new IllegalArgumentException(s"Invalid policy ${conf.policy}")
     }
 
-    val start = System.currentTimeMillis()
-    factories.foreach { case (libName, factory) =>
-      logInfo(s"Starting $libName")
-      val start = System.currentTimeMillis()
-
-      val numMatches = commoncrawl.mapPartitions(it => {
-        val matcher = factory().create(regexp)
-        it.map { doc =>
-          val text = doc._2//Jsoup.parse(doc).text()
-          matcher.getMatches(text, Array(0)).asScala.size
+    val commoncrawl = CommonCrawlLoader(sc, conf.trainLocation).repartitionAndSortWithinPartitions(
+      new Partitioner {
+        override def numPartitions = conf.numParts
+        override def getPartition(key: Any) = {
+          val id = key.asInstanceOf[String]
+          id.hashCode % conf.numParts
         }
-      }).sum()
+      }).map{ case (id, doc) => RegexTask(id, doc)}.cache()
 
-      val endTime = System.currentTimeMillis()
-      logInfo(s"Finished $libName in ${endTime - start} ms")
-      logInfo(s"found $numMatches matches")
+    val numDocs = commoncrawl.count()
+    logInfo(s"loaded $numDocs docs")
+
+
+    conf.warmup.foreach { warmupCount =>
+      logInfo("Warming up!")
+      commoncrawl.mapPartitionsWithIndex {
+        case (pid, it) =>
+          it.take(warmupCount).map { task =>
+            val ops = RegexFactoryContainer.factories.indices.map(i => regexMatcher(RegexContainer(i, conf.regex), _: RegexTask))
+            ops.foreach {
+              x => x.apply(task)
+            }
+          }
+      }.count()
     }
 
-    val end = System.currentTimeMillis()
+    val banditResults = commoncrawl.mapPartitionsWithIndex {
+      case (pid, it) =>
 
-    val time = (end - start).toDouble
+        it.zipWithIndex.map {
+          case (task, index) =>
+            val startTime = System.nanoTime()
+            val action = bandit.applyAndOutputReward(task)._2
+            val endTime = System.nanoTime()
 
-    Identity[Image]().toPipeline
+            s"$pid,$index,${task.id},${task.doc.length},$startTime,$endTime,${action.arm},${action.reward},${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate}"
+        }
+    }.collect()
+
+    val writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(conf.outputLocation)))
+    writer.write("partition_id,pos_in_partition,canonical_tuple_id,doc_length,system_nano_start_time,system_nano_end_time,arm,reward,policy,nonstationarity,driftRate,driftCoefficient,clusterCoefficient,communicationRate\n")
+    for (x <- banditResults) {
+      writer.write(x + "\n")
+    }
+    writer.close()
   }
 
   case class PipelineConfig(
@@ -105,7 +238,12 @@ object CommonCrawlRegex extends Serializable with Logging {
       labelLocation: String = "",
       outputLocation: String = "",
       policy: String = "",
-      communicationRate: String = "5s",
+      regex: String = "",
+      nonstationarity: String = "stationary",
+      communicationRate: String = "500ms",
+      clusterCoefficient: String = "1.0",
+      driftDetectionRate: String = "10s",
+      driftCoefficient: String = "1.0",
       disableMulticore: Boolean = false,
       warmup: Option[Int] = None,
       numParts: Int = 64)
@@ -117,7 +255,12 @@ object CommonCrawlRegex extends Serializable with Logging {
     opt[String]("outputLocation") required() action { (x,c) => c.copy(outputLocation=x) }
     opt[String]("labelLocation") required() action { (x,c) => c.copy(labelLocation=x) }
     opt[String]("policy") required() action { (x,c) => c.copy(policy=x) }
+    opt[String]("regex") required() action { (x,c) => c.copy(regex=x) }
+    opt[String]("nonstationarity") action { (x,c) => c.copy(nonstationarity=x) }
     opt[String]("communicationRate") action { (x,c) => c.copy(communicationRate=x) }
+    opt[String]("clusterCoefficient") action { (x,c) => c.copy(clusterCoefficient=x) }
+    opt[String]("driftDetectionRate") action { (x,c) => c.copy(driftDetectionRate=x) }
+    opt[String]("driftCoefficient") action { (x,c) => c.copy(driftCoefficient=x) }
     opt[Unit]("disableMulticore") action { (x,c) => c.copy(disableMulticore=true) }
     opt[Int]("warmup") action { (x,c) => c.copy(warmup=Some(x)) }
     opt[Int]("numParts") action { (x,c) => c.copy(numParts=x) }
