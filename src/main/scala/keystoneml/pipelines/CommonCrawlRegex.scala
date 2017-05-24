@@ -235,7 +235,6 @@ object CommonCrawlRegex extends Serializable with Logging {
 
   case class PipelineConfig(
       trainLocation: String = "",
-      labelLocation: String = "",
       outputLocation: String = "",
       policy: String = "",
       regex: String = "",
@@ -253,7 +252,6 @@ object CommonCrawlRegex extends Serializable with Logging {
     help("help") text("prints this usage text")
     opt[String]("trainLocation") required() action { (x,c) => c.copy(trainLocation=x) }
     opt[String]("outputLocation") required() action { (x,c) => c.copy(outputLocation=x) }
-    opt[String]("labelLocation") required() action { (x,c) => c.copy(labelLocation=x) }
     opt[String]("policy") required() action { (x,c) => c.copy(policy=x) }
     opt[String]("regex") required() action { (x,c) => c.copy(regex=x) }
     opt[String]("nonstationarity") action { (x,c) => c.copy(nonstationarity=x) }
