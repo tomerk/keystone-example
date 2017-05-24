@@ -196,7 +196,7 @@ object CommonCrawlRegex extends Serializable with Logging {
           val id = key.asInstanceOf[String]
           math.abs(MurmurHash3.stringHash(id)) % conf.numParts
         }
-      }).map{ case (id, doc) => RegexTask(id, doc)}.cache()
+      }).map{ case (id, doc) => RegexTask(id, doc)}.sample(false, 0.01, seed = 0l).cache()
 
     val numDocs = commoncrawl.count()
     logInfo(s"loaded $numDocs docs")
