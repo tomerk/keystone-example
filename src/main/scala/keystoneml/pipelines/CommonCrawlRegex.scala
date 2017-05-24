@@ -33,10 +33,12 @@ object RegexFactoryContainer extends Serializable {
     new OroRegexFactory,
     new JavaUtilPatternRegexFactory
   )
+
+  val regexes: Seq[String] = Seq("[(http(s)?):\\/\\/(www\\.)?a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)")
 }
 
-case class RegexContainer(factory: Int, regexp: String) {
-  @transient lazy val regex: Regex = RegexFactoryContainer.factories(factory).create(regexp)
+case class RegexContainer(factory: Int, regexp: Int) {
+  @transient lazy val regex: Regex = RegexFactoryContainer.factories(factory).create(RegexFactoryContainer.regexes(regexp))
 }
 
 case class RegexRecord(partitionId: Int,
@@ -237,7 +239,7 @@ object CommonCrawlRegex extends Serializable with Logging {
       trainLocation: String = "",
       outputLocation: String = "",
       policy: String = "",
-      regex: String = "",
+      regex: Int = 0,
       nonstationarity: String = "stationary",
       communicationRate: String = "500ms",
       clusterCoefficient: String = "1.0",
@@ -253,7 +255,7 @@ object CommonCrawlRegex extends Serializable with Logging {
     opt[String]("trainLocation") required() action { (x,c) => c.copy(trainLocation=x) }
     opt[String]("outputLocation") required() action { (x,c) => c.copy(outputLocation=x) }
     opt[String]("policy") required() action { (x,c) => c.copy(policy=x) }
-    opt[String]("regex") required() action { (x,c) => c.copy(regex=x) }
+    opt[String]("regex") required() action { (x,c) => c.copy(regex=x.toInt) }
     opt[String]("nonstationarity") action { (x,c) => c.copy(nonstationarity=x) }
     opt[String]("communicationRate") action { (x,c) => c.copy(communicationRate=x) }
     opt[String]("clusterCoefficient") action { (x,c) => c.copy(clusterCoefficient=x) }
