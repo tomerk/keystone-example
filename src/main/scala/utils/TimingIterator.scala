@@ -36,7 +36,7 @@ abstract class TimingIterator[ +A, +I <: Iterator[A]](sub: I) extends Iterator[A
 }
 
 object TimingIterator {
-  def apply[A, I <: Iterator[A]](sub: I, completionFunction: Long => Unit) : CompletionIterator[A, I] = {
+  def apply[A, I <: Iterator[A]](sub: I, completionFunction: Long => Unit) : TimingIterator[A, I] = {
     new TimingIterator[A, I](sub) {
       def completion(): Unit = completionFunction(runtime)
     }
