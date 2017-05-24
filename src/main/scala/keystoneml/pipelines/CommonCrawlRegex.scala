@@ -225,15 +225,15 @@ object CommonCrawlRegex extends Serializable with Logging {
         it.zipWithIndex.map {
           case (task, index) =>
             val startTime = System.nanoTime()
-            val action = bandit.applyAndOutputReward(task)._2
+            val (res, action) = bandit.applyAndOutputReward(task)
             val endTime = System.nanoTime()
 
-            s"$pid,$index,${task.id},${task.doc.length},$startTime,$endTime,${action.arm},${action.reward},${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate}"
+            s"$pid,$index,${task.id},${task.doc.length},$startTime,$endTime,${action.arm},${action.reward},${res.length},${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate}"
         }
     }.collect()
 
     val writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(conf.outputLocation)))
-    writer.write("partition_id,pos_in_partition,canonical_tuple_id,doc_length,system_nano_start_time,system_nano_end_time,arm,reward,policy,nonstationarity,driftRate,driftCoefficient,clusterCoefficient,communicationRate\n")
+    writer.write("partition_id,pos_in_partition,canonical_tuple_id,doc_length,system_nano_start_time,system_nano_end_time,arm,reward,num_matches,policy,nonstationarity,driftRate,driftCoefficient,clusterCoefficient,communicationRate\n")
     for (x <- banditResults) {
       writer.write(x + "\n")
     }
