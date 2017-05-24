@@ -32,14 +32,14 @@ object RegexFactoryContainer extends Serializable {
     new DkBricsAutomatonRegexFactory,
     new JRegexFactory,
     new OroRegexFactory,
-    new JavaUtilPatternRegexFactory,
-    new ComBasistechTclRegexFactory
+    new JavaUtilPatternRegexFactory
   )
 
   //  http://regexr.com
   val regexes: Seq[String] = Seq("[(http(s)?):\\/\\/(www\\.)?a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)",
-    "([A-Za-z]+\\s+[A-Za-z]+)",
-    "<(a)\\s([^>]+\\s)?href\\s*=\\s*(\"[^\"]*\"|'[^']*')[^>]*>")
+    "([A-Za-z]+[ \\t\\n\\r]+[A-Za-z]+[ \\t\\n\\r]+[A-Za-z]+)",
+    "<(a)[ \\t\\n\\r]([^>]+[ \\t\\n\\r])?href[ \\t\\n\\r]*=[ \\t\\n\\r]*(\"[^\"]*\"|'[^']*')[^>]*>",
+    "(\\+?([0-9]{1,3}))?([-. (]*([0-9]{3})[-. )]*)?(([0-9]{3})[-. ]*([0-9]{2,4})([-.x ]*([0-9]+))?)")
 }
 
 case class RegexContainer(factory: Int, regexp: Int) {
