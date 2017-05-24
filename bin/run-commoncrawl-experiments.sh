@@ -13,7 +13,7 @@ CLUSTER_COEFFICIENT_SETTINGS="1.0e10" #"1.0e10 1.0 0.0" #"5,3 5,3:5,20:8,30:24,5
 DRIFT_COEFFICIENT_SETTINGS="1.0" #"5,3 5,3:5,20:8,30:24,5:25,1"
 DRIFT_RATE_SETTINGS="999999s" # 10s" #"999999s 30s 10s 5s" #"5,3 5,3:5,20:8,30:24,5:25,1"
 
-REGEXES="0 1 2"
+REGEXES="0"
 CONSTANT_POLICIES="constant:0 constant:1 constant:2 constant:3"
 ORACLE_POLICIES="oracle:min"
 DYNAMIC_POLICIES="ucb1-normal:0.4" #"ucb1-normal:0.4" # lin-ucb:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model" # ucb1-normal:0.4 ucb-gaussian-bayes lin-ucb:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model" #"pseudo-ucb gaussian-thompson-sampling lin-ucb:bias,fft_cost_model,matrix_multiply_cost_model,pos_in_partition,global_index,periodic_5" #epsilon-greedy gaussian-thompson-sampling pseudo-ucb linear-thompson-sampling lin-ucb"
