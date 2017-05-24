@@ -17,6 +17,7 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.io.Source
+import scala.util.hashing.MurmurHash3
 
 case class RegexTask(id: String, doc: String) {
   //def getMatches(arm: Int): Array[String] = regexOptions(arm).getMatches(doc, Array(0)).asScala.map(_.head).toArray
@@ -193,7 +194,7 @@ object CommonCrawlRegex extends Serializable with Logging {
         override def numPartitions = conf.numParts
         override def getPartition(key: Any) = {
           val id = key.asInstanceOf[String]
-          id.hashCode % conf.numParts
+          math.abs(MurmurHash3.stringHash(id)) % conf.numParts
         }
       }).map{ case (id, doc) => RegexTask(id, doc)}.cache()
 
