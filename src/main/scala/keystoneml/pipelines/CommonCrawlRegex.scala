@@ -194,14 +194,14 @@ object CommonCrawlRegex extends Serializable with Logging {
         throw new IllegalArgumentException(s"Invalid policy ${conf.policy}")
     }
 
-    val commoncrawl = CommonCrawlLoader(sc, conf.trainLocation).repartitionAndSortWithinPartitions(
+    val commoncrawl = CommonCrawlLoader(sc, conf.trainLocation).sample(false, 0.01, seed = 0l).repartitionAndSortWithinPartitions(
       new Partitioner {
         override def numPartitions = conf.numParts
         override def getPartition(key: Any) = {
           val id = key.asInstanceOf[String]
           math.abs(MurmurHash3.stringHash(id)) % conf.numParts
         }
-      }).map{ case (id, doc) => RegexTask(id, doc)}.sample(false, 0.01, seed = 0l).cache()
+      }).map{ case (id, doc) => RegexTask(id, doc)}.cache()
 
     val numDocs = commoncrawl.count()
     logInfo(s"loaded $numDocs docs")
