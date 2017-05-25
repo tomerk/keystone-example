@@ -29,7 +29,7 @@ abstract class RegexFeature extends Serializable {
 
 object RegexFactoryContainer extends Serializable {
   @transient lazy val factories: Seq[RegexFactory] = Seq(
-    new DkBricsAutomatonRegexFactory,
+    new JRegexFactory,//new DkBricsAutomatonRegexFactory,
     new JRegexFactory,
     new OroRegexFactory,
     new JavaUtilPatternRegexFactory
@@ -133,7 +133,7 @@ object CommonCrawlRegex extends Serializable with Logging {
     val regexp = URL_REGEX_PATTERN
     // TODO WARNME: REGEXES may not be threadsafe
     val factories = Seq[(String, Unit=>RegexFactory)](
-      ("DkBricsAutomatonRegexFactory", _ => new DkBricsAutomatonRegexFactory),
+      //("DkBricsAutomatonRegexFactory", _ => new DkBricsAutomatonRegexFactory),
       ("JRegexFactory", _ => new JRegexFactory),
       ("OroRegexFactory", _ => new OroRegexFactory),
       ("JavaUtilPatternRegexFactory", _ => new JavaUtilPatternRegexFactory)
