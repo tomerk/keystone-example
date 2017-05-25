@@ -29,7 +29,7 @@ abstract class RegexFeature extends Serializable {
 
 object RegexFactoryContainer extends Serializable {
   @transient lazy val factories: Seq[RegexFactory] = Seq(
-    new JRegexFactory,//new DkBricsAutomatonRegexFactory,
+    new DkBricsAutomatonRegexFactory,
     new JRegexFactory,
     new OroRegexFactory,
     new JavaUtilPatternRegexFactory
@@ -251,7 +251,6 @@ object CommonCrawlRegex extends Serializable with Logging {
       clusterCoefficient: String = "1.0",
       driftDetectionRate: String = "10s",
       driftCoefficient: String = "1.0",
-      disableMulticore: Boolean = false,
       warmup: Option[Int] = None,
       numParts: Int = 64)
 
@@ -267,7 +266,6 @@ object CommonCrawlRegex extends Serializable with Logging {
     opt[String]("clusterCoefficient") action { (x,c) => c.copy(clusterCoefficient=x) }
     opt[String]("driftDetectionRate") action { (x,c) => c.copy(driftDetectionRate=x) }
     opt[String]("driftCoefficient") action { (x,c) => c.copy(driftCoefficient=x) }
-    opt[Unit]("disableMulticore") action { (x,c) => c.copy(disableMulticore=true) }
     opt[Int]("warmup") action { (x,c) => c.copy(warmup=Some(x)) }
     opt[Int]("numParts") action { (x,c) => c.copy(numParts=x) }
   }.parse(args, PipelineConfig()).get
@@ -280,9 +278,12 @@ object CommonCrawlRegex extends Serializable with Logging {
   def main(args: Array[String]) = {
     val appConfig = parse(args)
 
-    val conf = new SparkConf().setAppName(s"$appName-${appConfig.policy}-${appConfig.communicationRate}-${appConfig.disableMulticore}").set(
+    val conf = new SparkConf().setAppName(s"$appName-${appConfig.policy}-${appConfig.communicationRate}").set(
       "spark.bandits.communicationRate",
       appConfig.communicationRate)
+      .set("spark.bandits.driftDetectionRate", appConfig.driftDetectionRate)
+      .set("spark.bandits.alwaysShare", "true")
+
     conf.setIfMissing("spark.master", "local[4]")
     val sc = new SparkContext(conf)
     run(sc, appConfig)
