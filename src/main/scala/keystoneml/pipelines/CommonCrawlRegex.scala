@@ -29,7 +29,7 @@ abstract class RegexFeature extends Serializable {
 
 object RegexFactoryContainer extends Serializable {
   @transient lazy val factories: Seq[RegexFactory] = Seq(
-    new DkBricsAutomatonRegexFactory,
+    new ComBasistechTclRegexFactory,
     new JRegexFactory,
     new OroRegexFactory,
     new JavaUtilPatternRegexFactory
