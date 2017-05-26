@@ -36,11 +36,17 @@ object RegexFactoryContainer extends Serializable {
   )
 
   //  http://regexr.com
-  val regexes: Seq[String] = Seq("[(http(s)?):\\/\\/(www\\.)?a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)",
+  val regexes: Seq[String] = Seq("[(http(s)?):\\/\\/(www\\.)?a-zA-Z0-9@:%._\\+~#=]{2,255}\\.[a-z]{2,6}",
     "([A-Za-z]+[ \\t\\n\\r]+[A-Za-z]+[ \\t\\n\\r]+[A-Za-z]+)",
     "<(a)[ \\t\\n\\r]([^>]+[ \\t\\n\\r])?href[ \\t\\n\\r]*=[ \\t\\n\\r]*(\"[^\"]*\"|'[^']*')[^>]*>",
     "(\\+?([0-9]{1,3}))?([-. (]*([0-9]{3})[-. )]*)?(([0-9]{3})[-. ]*([0-9]{2,4})([-.x ]*([0-9]+))?)",
-    "[a-zA-Z0-9]+((\\.|_)[A-Za-z0-9!#$%&'*+/=?^`~-]+)*@(?!([a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.))([A-Za-z0-9]([a-zA-Z0-9-]*[A-Za-z0-9])?\\.)+[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?")
+    "[a-zA-Z0-9]+((\\.|_)[A-Za-z0-9!#$%&'*+/=?^`~-]+)*@(?!([a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.))([A-Za-z0-9]([a-zA-Z0-9-]*[A-Za-z0-9])?\\.)+[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?",
+    "[a-z0-9!#$%&'*+/=?^_`{|}~-]+(\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9]([a-z0-9-]*[a-z0-9])?")
+  /*Seq("[(http(s)?):\\/\\/(www\\.)?a-zA-Z0-9@:%._\\+~#=]{2,255}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)", // Had to change {2,256} to {2,255} for combasistech
+      "([A-Za-z]+[ \\t\\n\\r]+[A-Za-z]+[ \\t\\n\\r]+[A-Za-z]+)",
+      "<(a)[ \\t\\n\\r]([^>]+[ \\t\\n\\r])?href[ \\t\\n\\r]*=[ \\t\\n\\r]*(\"[^\"]*\"|'[^']*')[^>]*>",
+      "(\\+?([0-9]{1,3}))?([-. (]*([0-9]{3})[-. )]*)?(([0-9]{3})[-. ]*([0-9]{2,4})([-.x ]*([0-9]+))?)",
+      "[a-zA-Z0-9]+((\\.|_)[A-Za-z0-9!#$%&'*+/=?^`~-]+)*@(?!([a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.))([A-Za-z0-9]([a-zA-Z0-9-]*[A-Za-z0-9])?\\.)+[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?")*/
 }
 
 case class RegexContainer(factory: Int, regexp: Int) {
@@ -276,6 +282,16 @@ object CommonCrawlRegex extends Serializable with Logging {
    * @param args
    */
   def main(args: Array[String]) = {
+    val regexes: Seq[String] = Seq("[(http(s)?):\\/\\/(www\\.)?a-zA-Z0-9@:%._\\+~#=]{2,255}\\.[a-z]{2,6}",
+      "([A-Za-z]+[ \\t\\n\\r]+[A-Za-z]+[ \\t\\n\\r]+[A-Za-z]+)",
+      "<(a)[ \\t\\n\\r]([^>]+[ \\t\\n\\r])?href[ \\t\\n\\r]*=[ \\t\\n\\r]*(\"[^\"]*\"|'[^']*')[^>]*>",
+      "(\\+?([0-9]{1,3}))?([-. (]*([0-9]{3})[-. )]*)?(([0-9]{3})[-. ]*([0-9]{2,4})([-.x ]*([0-9]+))?)",
+      "[a-zA-Z0-9]+((\\.|_)[A-Za-z0-9!#$%&'*+/=?^`~-]+)*@(?!([a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.))([A-Za-z0-9]([a-zA-Z0-9-]*[A-Za-z0-9])?\\.)+[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?",
+    "[a-z0-9!#$%&'*+/=?^_`{|}~-]+(\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9]([a-z0-9-]*[a-z0-9])?")
+
+    val x =new DkBricsAutomatonRegexFactory
+    val y = x.create(regexes(5))
+    val z = y.getMatches("help me http://www.google.com josh@gmail.com 408-425-7942", Array(0)).asScala.toArray
     val appConfig = parse(args)
 
     val conf = new SparkConf().setAppName(s"$appName-${appConfig.policy}-${appConfig.communicationRate}").set(
