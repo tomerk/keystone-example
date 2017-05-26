@@ -43,7 +43,7 @@ object RegexFactoryContainer extends Serializable {
     "[a-zA-Z0-9]+((\\.|_)[A-Za-z0-9!#$%&'*+/=?^`~-]+)*@(?!([a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.))([A-Za-z0-9]([a-zA-Z0-9-]*[A-Za-z0-9])?\\.)+[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?",
     "[a-z0-9!#$%&'*+/=?^_`~-]+(\\.[a-z0-9!#$%&'*+/=?^_`~-]+)*@([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9]([a-z0-9-]*[a-z0-9])?",
     "\\$([1-9][0-9]{0,2}|[0-9])(\\,[0-9]{3})*(\\.[0-9]+)?(?=[ \\t\\n\\r]|$)", // Find dollar counts
-    "#(?:[a-fA-F\\d]{3}){1,2}|[rR][gG][bB]\\((?:(?:\\s*0*(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)\\s*,){2}\\s*0*(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)|\\s*0*(?:100(?:\\.0+)?|\\d?\\d(?:\\.\\d+)?)%(?:\\s*,\\s*0*(?:100(?:\\.0+)?|\\d?\\d(?:\\.\\d+)?)%){2})\\s*\\)|hsl\\(\\s*0*(?:360|3[0-5]\\d|[12]?\\d?\\d)\\s*(?:,\\s*0*(?:100(?:\\.0+)?|\\d?\\d(?:\\.\\d+)?)%\\s*){2}\\)|(?:[rR][gG][bB][aA]\\((?:(?:\\s*0*(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)\\s*,){3}|(?:\\s*0*(?:100(?:\\.0+)?|\\d?\\d(?:\\.\\d+)?)%\\s*,){3})|[hH][sS][lL][aA]\\(\\s*0*(?:360|3[0-5]\\d|[12]?\\d?\\d)\\s*(?:,\\s*0*(?:100(?:\\.0+)?|\\d?\\d(?:\\.\\d+)?)%\\s*){2},)\\s*0*(?:1|0(?:\\.\\d+)?)\\s*\\)" // CSS colors regexr: http://regexr.com/38lmo slightly edited to be case insensitive & not use word boundaries
+    "#([a-fA-F\\d]{3}){1,2}|[rR][gG][bB]\\(((\\s*0*(25[0-5]|2[0-4]\\d|1?\\d?\\d)\\s*,){2}\\s*0*(25[0-5]|2[0-4]\\d|1?\\d?\\d)|\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%(\\s*,\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%){2})\\s*\\)|hsl\\(\\s*0*(360|3[0-5]\\d|[12]?\\d?\\d)\\s*(,\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%\\s*){2}\\)|([rR][gG][bB][aA]\\(((\\s*0*(25[0-5]|2[0-4]\\d|1?\\d?\\d)\\s*,){3}|(\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%\\s*,){3})|[hH][sS][lL][aA]\\(\\s*0*(360|3[0-5]\\d|[12]?\\d?\\d)\\s*(,\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%\\s*){2},)\\s*0*(1|0(\\.\\d+)?)\\s*\\)" // CSS colors regexr: http://regexr.com/38lmo slightly edited to be case insensitive & not use word boundaries
 
   )
   /*Seq("[(http(s)?):\\/\\/(www\\.)?a-zA-Z0-9@:%._\\+~#=]{2,255}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)", // Had to change {2,256} to {2,255} for combasistech
@@ -129,17 +129,17 @@ object CommonCrawlRegex extends Serializable with Logging {
     //val regexp = "([A-Za-z]+)" // Match all words
     val tag = "a"
     val attr = "href"
-    val SLOW_EMAIL_REGEX_PATTERN = "[a-zA-Z0-9]+(?:(\\.|_)[A-Za-z0-9!#$%&'*+/=?^`{|}~-]+)*@(?!([a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.))(?:[A-Za-z0-9](?:[a-zA-Z0-9-]*[A-Za-z0-9])?\\.)+[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?"
+    val SLOW_EMAIL_REGEX_PATTERN = "[a-zA-Z0-9]+((\\.|_)[A-Za-z0-9!#$%&'*+/=?^`{|}~-]+)*@(?!([a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.))([A-Za-z0-9]([a-zA-Z0-9-]*[A-Za-z0-9])?\\.)+[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?"
     val URL_REGEX_PATTERN = "[(http(s)?):\\/\\/(www\\.)?a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)"//"[(http(s)?):\\/\\/(www\\.)?a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)"
-    val HTML_TAG_PATTERN = (s"<($tag)\\s(?:[^>]+\\s)?$attr" + "\\s*=\\s*(\"[^\"]*\"|'[^']*')[^>]*>")
+    val HTML_TAG_PATTERN = (s"<($tag)\\s([^>]+\\s)?$attr" + "\\s*=\\s*(\"[^\"]*\"|'[^']*')[^>]*>")
     val HTML_TAG_NO_ATTR_PATTERN = s"<($tag)(\\s[^>]*)?>"
     // The below is a really bad phone regex! Matches dates, numbers, etc.
-    val PHONE_REGEX = "(?:\\+?(\\d{1,3}))?([-. (]*(\\d{3})[-. )]*)?((\\d{3})[-. ]*(\\d{2,4})(?:[-.x ]*(\\d+))?)"
+    val PHONE_REGEX = "(\\+?(\\d{1,3}))?([-. (]*(\\d{3})[-. )]*)?((\\d{3})[-. ]*(\\d{2,4})([-.x ]*(\\d+))?)"
     //val regexp = "([A-Za-z]+\\s+[A-Za-z]+)" // Match some bigrams
     //val regexp = "([A-Za-z]+%)" // Match all words
     //val regexp = "([A-Za-z]+ed)[ \t\n\r]+([A-Za-z]+[A-Da-dF-Zf-z][A-Ca-cE-Ze-z][ \t\n\r]+)*(John|Alice|Jane|James|Walter|Lord|George|Jackal|returned|angel|ornament|ripped|riposte)[ \t\n\r]+"
     // This is an insane stack-overflowing regex (that doesn't work right with DKbrics anyway) for email I found online: http://emailregex.com
-    //val regexp = "(?:[a-z0-9!#$%&'*+/=?^_`~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`~-]+)*|\"(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])*\")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])"
+    //val regexp = "([a-z0-9!#$%&'*+/=?^_`~-]+(\\.[a-z0-9!#$%&'*+/=?^_`~-]+)*|\"([\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])*\")@(([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9]([a-z0-9-]*[a-z0-9])?|\\[((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:([\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])"
     val regexp = URL_REGEX_PATTERN
     // TODO WARNME: REGEXES may not be threadsafe
     val factories = Seq[(String, Unit=>RegexFactory)](
@@ -293,7 +293,7 @@ object CommonCrawlRegex extends Serializable with Logging {
       "[a-zA-Z0-9]+((\\.|_)[A-Za-z0-9!#$%&'*+/=?^`~-]+)*@(?!([a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.))([A-Za-z0-9]([a-zA-Z0-9-]*[A-Za-z0-9])?\\.)+[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?",
     "[a-z0-9!#$%&'*+/=?^_`{|}~-]+(\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9]([a-z0-9-]*[a-z0-9])?",
     "\\$([1-9][0-9]{0,2}|[0-9])(\\,[0-9]{3})*(\\.[0-9]+)?(?=[ \\t\\n\\r]|$)", // Find dollar counts
-      "#(?:[a-fA-F\\d]{3}){1,2}|[rR][gG][bB]\\((?:(?:\\s*0*(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)\\s*,){2}\\s*0*(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)|\\s*0*(?:100(?:\\.0+)?|\\d?\\d(?:\\.\\d+)?)%(?:\\s*,\\s*0*(?:100(?:\\.0+)?|\\d?\\d(?:\\.\\d+)?)%){2})\\s*\\)|hsl\\(\\s*0*(?:360|3[0-5]\\d|[12]?\\d?\\d)\\s*(?:,\\s*0*(?:100(?:\\.0+)?|\\d?\\d(?:\\.\\d+)?)%\\s*){2}\\)|(?:[rR][gG][bB][aA]\\((?:(?:\\s*0*(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)\\s*,){3}|(?:\\s*0*(?:100(?:\\.0+)?|\\d?\\d(?:\\.\\d+)?)%\\s*,){3})|[hH][sS][lL][aA]\\(\\s*0*(?:360|3[0-5]\\d|[12]?\\d?\\d)\\s*(?:,\\s*0*(?:100(?:\\.0+)?|\\d?\\d(?:\\.\\d+)?)%\\s*){2},)\\s*0*(?:1|0(?:\\.\\d+)?)\\s*\\)" // CSS colors regexr: http://regexr.com/38lmo slightly edited to be case insensitive & not use word boundaries
+      "#([a-fA-F\\d]{3}){1,2}|[rR][gG][bB]\\(((\\s*0*(25[0-5]|2[0-4]\\d|1?\\d?\\d)\\s*,){2}\\s*0*(25[0-5]|2[0-4]\\d|1?\\d?\\d)|\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%(\\s*,\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%){2})\\s*\\)|hsl\\(\\s*0*(360|3[0-5]\\d|[12]?\\d?\\d)\\s*(,\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%\\s*){2}\\)|([rR][gG][bB][aA]\\(((\\s*0*(25[0-5]|2[0-4]\\d|1?\\d?\\d)\\s*,){3}|(\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%\\s*,){3})|[hH][sS][lL][aA]\\(\\s*0*(360|3[0-5]\\d|[12]?\\d?\\d)\\s*(,\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%\\s*){2},)\\s*0*(1|0(\\.\\d+)?)\\s*\\)" // CSS colors regexr: http://regexr.com/38lmo slightly edited to be case insensitive & not use word boundaries
     )
 
     val x =new ComBasistechTclRegexFactory
