@@ -489,6 +489,8 @@ object ConvolveFlickrData extends Serializable with Logging {
       appConfig.driftDetectionRate).set(
       "spark.bandits.driftCoefficient",
       appConfig.driftCoefficient)
+    .set("spark.bandits.contextCombinedWeights", "True")
+
     conf.setIfMissing("spark.master", "local[4]")
     val sc = new SparkContext(conf)
     run(sc, appConfig)
