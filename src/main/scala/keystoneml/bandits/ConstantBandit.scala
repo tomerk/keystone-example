@@ -30,6 +30,10 @@ class ConstantBandit[A, B](arm: Int, func: A => B) extends BanditTrait[A, B] {
       override def provide(reward: Double): Unit = Unit
 
       override def getRuntime: Long = endTime - startTime
+
+      override def getArm: Int = 0
+
+      override def banditId: Long = 0
     })
   }
 
