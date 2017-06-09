@@ -22,13 +22,14 @@ import java.io._
 import keystoneml.bandits.{ConstantBandit, OracleBandit}
 import keystoneml.pipelines.Logging
 import org.apache.spark.bandit.policies._
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.{SparkConf, SparkContext, SparkNamespaceUtils}
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.expressions.SubqueryExpression
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.util._
+import org.apache.spark.ui.scope.RDDOperationGraphContainsStringUtil
 import scopt.OptionParser
 
 import scala.collection.mutable.ArrayBuffer
@@ -279,16 +280,23 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
     val tableSizes = setupTables(spark, conf.dataLocation, conf.cacheTables)
 
 
+    var stagesWithJoins = Set[Int]()
     val banditResults = genQueries(conf.queryGenRules).zipWithIndex.map { case (query, index) =>
       val startTime = System.nanoTime()
       val action = bandit.applyAndOutputReward(query)._2
       val endTime = System.nanoTime()
 
-      s"$index,$query,${action.arm},${action.reward},${conf.confSettings(action.arm).map(_.value).mkString(",")},$startTime,$endTime,${'"' + conf.policy + '"'},${'"' + conf.queryGenRules + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate}"
+      val nextStagesWithJoins = SparkNamespaceUtils.matchingStages(spark, "SortMergeJoinExec")
+      val joinTime = SparkNamespaceUtils.stageExecutorRunTime(spark, nextStagesWithJoins.diff(stagesWithJoins))
+      stagesWithJoins = nextStagesWithJoins
+
+      s"$index,$query,${action.arm},${action.reward},${conf.confSettings(action.arm).map(_.value).mkString(",")},$startTime,$endTime,$joinTime,${'"' + conf.policy + '"'},${'"' + conf.queryGenRules + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate}"
+
+
     }
 
     val writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(conf.outputLocation)))
-    writer.write(s"index,query,arm,reward,${settingKeys.mkString(",")},system_nano_start_time,system_nano_end_time,policy,query_gen_rules,driftRate,driftCoefficient,clusterCoefficient,communicationRate\n")
+    writer.write(s"index,query,arm,reward,${settingKeys.mkString(",")},system_nano_start_time,system_nano_end_time,joinTime,policy,query_gen_rules,driftRate,driftCoefficient,clusterCoefficient,communicationRate\n")
 
     for (x <- banditResults) {
       writer.write(x + "\n")
