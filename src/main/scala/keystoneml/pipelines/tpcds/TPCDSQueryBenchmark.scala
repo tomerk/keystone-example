@@ -286,7 +286,7 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
       val action = bandit.applyAndOutputReward(query)._2
       val endTime = System.nanoTime()
 
-      val nextStagesWithJoins = SparkNamespaceUtils.matchingStages(spark, "SortMergeJoinExec")
+      val nextStagesWithJoins = SparkNamespaceUtils.matchingStages(spark, "SortMergeJoin")
       val joinTime = SparkNamespaceUtils.stageExecutorRunTime(spark, nextStagesWithJoins.diff(stagesWithJoins))
       stagesWithJoins = nextStagesWithJoins
 
