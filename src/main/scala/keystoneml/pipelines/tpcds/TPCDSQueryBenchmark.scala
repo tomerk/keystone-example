@@ -287,16 +287,17 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
       val endTime = System.nanoTime()
 
       val nextStagesWithJoins = SparkNamespaceUtils.matchingStages(spark, "SortMergeJoin")
-      val joinTime = SparkNamespaceUtils.stageExecutorRunTime(spark, nextStagesWithJoins.diff(stagesWithJoins))
+      val totalExecutorJoinTime = SparkNamespaceUtils.stageTotalExecutorRunTime(spark, nextStagesWithJoins.diff(stagesWithJoins))
+      val joinTime = SparkNamespaceUtils.stageRunTime(spark, nextStagesWithJoins.diff(stagesWithJoins))
       stagesWithJoins = nextStagesWithJoins
 
-      s"$index,$query,${action.arm},${action.reward},${conf.confSettings(action.arm).map(_.value).mkString(",")},$startTime,$endTime,$joinTime,${'"' + conf.policy + '"'},${'"' + conf.queryGenRules + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate}"
+      s"$index,$query,${action.arm},${action.reward},${conf.confSettings(action.arm).map(_.value).mkString(",")},$startTime,$endTime,$totalExecutorJoinTime,$joinTime,${'"' + conf.policy + '"'},${'"' + conf.queryGenRules + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate}"
 
 
     }
 
     val writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(conf.outputLocation)))
-    writer.write(s"index,query,arm,reward,${settingKeys.mkString(",")},system_nano_start_time,system_nano_end_time,joinTime,policy,query_gen_rules,driftRate,driftCoefficient,clusterCoefficient,communicationRate\n")
+    writer.write(s"index,query,arm,reward,${settingKeys.mkString(",")},system_nano_start_time,system_nano_end_time,totalExecutorJoinTime,joinTime,policy,query_gen_rules,driftRate,driftCoefficient,clusterCoefficient,communicationRate\n")
 
     for (x <- banditResults) {
       writer.write(x + "\n")

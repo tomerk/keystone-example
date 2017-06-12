@@ -14,9 +14,14 @@ object SparkNamespaceUtils {
 
   }
 
-  def stageExecutorRunTime(spark: SparkSession, stageIds: Set[Int]): Long = {
+  def stageTotalExecutorRunTime(spark: SparkSession, stageIds: Set[Int]): Long = {
     spark.sparkContext.jobProgressListener.completedStages
       .filter(x => stageIds.contains(x.stageId)).map(_.taskMetrics.executorRunTime).sum
+  }
+
+  def stageRunTime(spark: SparkSession, stageIds: Set[Int]): Long = {
+    spark.sparkContext.jobProgressListener.completedStages
+      .filter(x => stageIds.contains(x.stageId)).map(x => x.completionTime.get - x.submissionTime.get).sum
   }
 
 }
