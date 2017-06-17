@@ -281,28 +281,23 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
 
 
     var stagesWithJoins = Set[Int]()
-    val banditResults = genQueries(conf.queryGenRules).zipWithIndex.flatMap { case (query, index) =>
+    val banditResults = genQueries(conf.queryGenRules).zipWithIndex.map { case (query, index) =>
       val startTime = System.nanoTime()
       val action = bandit.applyAndOutputReward(query)._2
       val endTime = System.nanoTime()
 
       val nextStagesWithJoins = SparkNamespaceUtils.matchingStages(spark, "SortMergeJoin")
       val totalExecutorJoinTime = SparkNamespaceUtils.stageTotalExecutorRunTime(spark, nextStagesWithJoins.diff(stagesWithJoins))
-
-      val res = SparkNamespaceUtils.taskTimes(spark, nextStagesWithJoins.toSeq).flatMap {
-        case (stageId, taskInfos) =>
-          taskInfos.map { taskInfo =>
-            s"$index,$query,${action.arm},${action.reward},${conf.confSettings(action.arm).map(_.value).mkString(",")},$startTime,$endTime,$totalExecutorJoinTime,$stageId,${taskInfo.partitionId},${taskInfo.executorId},${taskInfo.duration},${'"' + conf.policy + '"'},${'"' + conf.queryGenRules + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate}"
-          }
-      }
-
+      val joinTime = SparkNamespaceUtils.stageRunTime(spark, nextStagesWithJoins.diff(stagesWithJoins))
       stagesWithJoins = nextStagesWithJoins
 
-      res
+      s"$index,$query,${action.arm},${action.reward},${conf.confSettings(action.arm).map(_.value).mkString(",")},$startTime,$endTime,$totalExecutorJoinTime,$joinTime,${'"' + conf.policy + '"'},${'"' + conf.queryGenRules + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate}"
+
+
     }
 
     val writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(conf.outputLocation)))
-    writer.write(s"index,query,arm,reward,${settingKeys.mkString(",")},system_nano_start_time,system_nano_end_time,totalExecutorJoinTime,stageId,partitionId,executorId,taskDuration,policy,query_gen_rules,driftRate,driftCoefficient,clusterCoefficient,communicationRate\n")
+    writer.write(s"index,query,arm,reward,${settingKeys.mkString(",")},system_nano_start_time,system_nano_end_time,totalExecutorJoinTime,joinTime,policy,query_gen_rules,driftRate,driftCoefficient,clusterCoefficient,communicationRate\n")
 
     for (x <- banditResults) {
       writer.write(x + "\n")
