@@ -8,15 +8,15 @@ WORKLOAD_NAME="flickr"
 declare -a DISTRIBUTED_SETTINGS=("--communicationRate 500ms")
 #declare -a WARMUP_SETTINGS=("" "--warmup 5")
 declare -a WARMUP_SETTINGS=("--warmup 5")
-NONSTATIONARY_SETTINGS="sort_partitions sort" # random_walk,0.05" #"stationary sort sort_partitions random_walk,0.05 global_random_walk,0.05" #"stationary sort_partitions sort random_walk,0.05 global_random_walk,0.05" #("--nonstationarity sort_partitions" "--nonstationarity global_random_walk,0.05") #"--nonstationarity sort" "--nonstationarity random_walk,0.05" "--nonstationarity periodic") #NONSTATIONARY_SETTINGS=("" "--nonstationarity sort" "--nonstationarity periodic" "--nonstationarity sort_partition" "--nonstationarity random_walk,0.05" )
-CLUSTER_COEFFICIENT_SETTINGS="0.0 1.0e10 2.0 1.0 0.5 0.25" #"1.0e10 1.0 0.0" #"5,3 5,3:5,20:8,30:24,5:25,1"
+NONSTATIONARY_SETTINGS="stationary" # random_walk,0.05" #"stationary sort sort_partitions random_walk,0.05 global_random_walk,0.05" #"stationary sort_partitions sort random_walk,0.05 global_random_walk,0.05" #("--nonstationarity sort_partitions" "--nonstationarity global_random_walk,0.05") #"--nonstationarity sort" "--nonstationarity random_walk,0.05" "--nonstationarity periodic") #NONSTATIONARY_SETTINGS=("" "--nonstationarity sort" "--nonstationarity periodic" "--nonstationarity sort_partition" "--nonstationarity random_walk,0.05" )
+CLUSTER_COEFFICIENT_SETTINGS="0.25" #"0.0 1.0e10 2.0 1.0 0.5 0.25" #"1.0e10 1.0 0.0" #"5,3 5,3:5,20:8,30:24,5:25,1"
 DRIFT_COEFFICIENT_SETTINGS="2.0 1.0" #"5,3 5,3:5,20:8,30:24,5:25,1"
 DRIFT_RATE_SETTINGS="15s" # 10s" #"999999s 30s 10s 5s" #"5,3 5,3:5,20:8,30:24,5:25,1"
 
 PATCH_SETTINGS="5,3:5,20:8,30:24,5:25,1" #"5,3 5,3:5,20:8,30:24,5:25,1"
 CROP_SETTINGS="0,0,0.5,0.5" #"0,0,0.5,0.5:0,0.5,0.5,1.0:0.5,0,1,0.5:0.5,0.5,1,1"
-CONSTANT_POLICIES="" #"constant:0 constant:1 constant:2"
-ORACLE_POLICIES="" #"oracle:min"
+CONSTANT_POLICIES="constant:0 constant:1 constant:2"
+ORACLE_POLICIES="oracle:min"
 DYNAMIC_POLICIES="linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,filter_cols,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_cols,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,image_size:true:1.0 linear-thompson-sampling:bias:true:1.0 gaussian-thompson-sampling:1.0"
 #"lin-ucb:bias,image_rows,image_cols,filter_rows,filter_cols,image_size:4 lin-ucb:bias,image_rows,image_cols,filter_rows,image_size:4 lin-ucb:bias,image_rows,image_cols,filter_cols,image_size:4 lin-ucb:bias,image_rows,image_cols,image_size:4 lin-ucb:bias:4 ucb1-normal:0.5" # ucb1-normal:0.5" #"ucb1-normal:0.4" # lin-ucb:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model" # ucb1-normal:0.4 ucb-gaussian-bayes lin-ucb:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model" #"pseudo-ucb gaussian-thompson-sampling lin-ucb:bias,fft_cost_model,matrix_multiply_cost_model,pos_in_partition,global_index,periodic_5" #epsilon-greedy gaussian-thompson-sampling pseudo-ucb linear-thompson-sampling lin-ucb"
 
