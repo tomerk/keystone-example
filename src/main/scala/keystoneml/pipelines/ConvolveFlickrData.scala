@@ -407,6 +407,8 @@ object ConvolveFlickrData extends Serializable with Logging {
       }.count()
     }
 
+    val globalStart = System.currentTimeMillis()
+
     val banditResults = convolutionTasks.mapPartitionsWithIndex {
       case (pid, it) =>
         val bandit = if (conf.disableMulticore) {
@@ -415,21 +417,28 @@ object ConvolveFlickrData extends Serializable with Logging {
           bandits(0)
         }
 
+        var pStartTime: Long = -1
         it.zipWithIndex.map {
           case (task, index) =>
             val startTime = System.nanoTime()
+            if (pStartTime < 0) {
+              pStartTime = startTime
+            }
             val action = bandit.applyAndOutputReward(task)._2
             val endTime = System.nanoTime()
 
-            s"$pid,$index,${task.id},${task.image.metadata.xDim},${task.image.metadata.yDim},${task.filters.rows},${task.filters.cols},$startTime,$endTime,${action.arm},${action.reward},${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate}"
+            s"$pid,$index,${task.id},${task.image.metadata.xDim},${task.image.metadata.yDim},${task.filters.rows},${task.filters.cols},$startTime,$endTime,${action.arm},${action.reward},${endTime-pStartTime}${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},0"
         }
     }.collect()
 
+    val globalEnd = System.currentTimeMillis()
+
     val writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(conf.outputLocation)))
-    writer.write("partition_id,pos_in_partition,canonical_tuple_id,img_x_dim,img_y_dim,filter_rows,filter_cols,system_nano_start_time,system_nano_end_time,arm,reward,policy,nonstationarity,driftRate,driftCoefficient,clusterCoefficient,communicationRate\n")
+    writer.write("partition_id,pos_in_partition,canonical_tuple_id,img_x_dim,img_y_dim,filter_rows,filter_cols,system_nano_start_time,system_nano_end_time,arm,reward,partition_running_nanos,policy,nonstationarity,driftRate,driftCoefficient,clusterCoefficient,communicationRate,globalTime\n")
     for (x <- banditResults) {
       writer.write(x + "\n")
     }
+    writer.write(s"-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},${globalEnd - globalStart}")
     writer.close()
 
     Identity[Image]() andThen Identity()
