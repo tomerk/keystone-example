@@ -7,7 +7,7 @@ WORKLOAD_NAME="flickr-$BANDITS_CLUSTER"
 #declare -a DISTRIBUTED_SETTINGS=("" "--communicationRate 0s" "--disableMulticore")
 declare -a DISTRIBUTED_SETTINGS=("--communicationRate 500ms")
 #declare -a WARMUP_SETTINGS=("" "--warmup 5")
-declare -a WARMUP_SETTINGS=("--warmup 0")
+declare -a WARMUP_SETTINGS=("--warmup 5")
 NONSTATIONARY_SETTINGS="stationary" # random_walk,0.05" #"stationary sort sort_partitions random_walk,0.05 global_random_walk,0.05" #"stationary sort_partitions sort random_walk,0.05 global_random_walk,0.05" #("--nonstationarity sort_partitions" "--nonstationarity global_random_walk,0.05") #"--nonstationarity sort" "--nonstationarity random_walk,0.05" "--nonstationarity periodic") #NONSTATIONARY_SETTINGS=("" "--nonstationarity sort" "--nonstationarity periodic" "--nonstationarity sort_partition" "--nonstationarity random_walk,0.05" )
 CLUSTER_COEFFICIENT_SETTINGS="0.25" #"0.0 1.0e10 2.0 1.0 0.5 0.25" #"1.0e10 1.0 0.0" #"5,3 5,3:5,20:8,30:24,5:25,1"
 DRIFT_COEFFICIENT_SETTINGS="2.0 1.0" #"5,3 5,3:5,20:8,30:24,5:25,1"
@@ -42,7 +42,7 @@ do
       --policy $POLICY \
       --patches $PATCH_SETTING \
       --crops $CROP_SETTING \
-      --numParts $NUM_PARTS --warmup 0 --nonstationarity $NONSTATIONARY_SETTING --clusterCoefficient 999981.0 --driftDetectionRate 999981s --driftCoefficient 999981.0
+      --numParts $NUM_PARTS --warmup 5 --nonstationarity $NONSTATIONARY_SETTING --clusterCoefficient 999981.0 --driftDetectionRate 999981s --driftCoefficient 999981.0
     "
                 flintrock download-file $BANDITS_CLUSTER keystone-example/$OUT_CSV experiment-results/$OUT_CSV
 
@@ -70,7 +70,7 @@ do
       --policy $POLICY:oracle_data.csv \
       --patches $PATCH_SETTING \
       --crops $CROP_SETTING \
-      --numParts $NUM_PARTS --warmup 0 --nonstationarity $NONSTATIONARY_SETTING --clusterCoefficient 999981.0 --driftDetectionRate 999981s --driftCoefficient 999981.0
+      --numParts $NUM_PARTS --warmup 5 --nonstationarity $NONSTATIONARY_SETTING --clusterCoefficient 999981.0 --driftDetectionRate 999981s --driftCoefficient 999981.0
     "
                 flintrock download-file $BANDITS_CLUSTER keystone-example/$OUT_CSV experiment-results/$OUT_CSV
 
