@@ -2,7 +2,7 @@
 BANDITS_CLUSTER="${BANDITS_CLUSTER:-bandits-cluster}"
 NUM_PARTS=32 #32
 KEYSTONE_MEM=20g
-WORKLOAD_NAME="flickr"
+WORKLOAD_NAME="flickr-$BANDITS_CLUSTER"
 
 #declare -a DISTRIBUTED_SETTINGS=("" "--communicationRate 0s" "--disableMulticore")
 declare -a DISTRIBUTED_SETTINGS=("--communicationRate 500ms")
