@@ -2,21 +2,23 @@
 BANDITS_CLUSTER="${BANDITS_CLUSTER:-bandits-cluster}"
 NUM_PARTS=32 #32
 KEYSTONE_MEM=20g
+WORKLOAD_NAME="flickr"
 
 #declare -a DISTRIBUTED_SETTINGS=("" "--communicationRate 0s" "--disableMulticore")
 declare -a DISTRIBUTED_SETTINGS=("--communicationRate 500ms")
 #declare -a WARMUP_SETTINGS=("" "--warmup 5")
 declare -a WARMUP_SETTINGS=("--warmup 5")
-NONSTATIONARY_SETTINGS="sort random_walk,0.05" #"stationary sort sort_partitions random_walk,0.05 global_random_walk,0.05" #"stationary sort_partitions sort random_walk,0.05 global_random_walk,0.05" #("--nonstationarity sort_partitions" "--nonstationarity global_random_walk,0.05") #"--nonstationarity sort" "--nonstationarity random_walk,0.05" "--nonstationarity periodic") #NONSTATIONARY_SETTINGS=("" "--nonstationarity sort" "--nonstationarity periodic" "--nonstationarity sort_partition" "--nonstationarity random_walk,0.05" )
-CLUSTER_COEFFICIENT_SETTINGS="2.0 1.0 0.5" #"1.0e10 1.0 0.0" #"5,3 5,3:5,20:8,30:24,5:25,1"
-DRIFT_COEFFICIENT_SETTINGS="1.0e10 2.0 1.0" #"5,3 5,3:5,20:8,30:24,5:25,1"
-DRIFT_RATE_SETTINGS="10s" # 10s" #"999999s 30s 10s 5s" #"5,3 5,3:5,20:8,30:24,5:25,1"
+NONSTATIONARY_SETTINGS="sort_partitions sort" # random_walk,0.05" #"stationary sort sort_partitions random_walk,0.05 global_random_walk,0.05" #"stationary sort_partitions sort random_walk,0.05 global_random_walk,0.05" #("--nonstationarity sort_partitions" "--nonstationarity global_random_walk,0.05") #"--nonstationarity sort" "--nonstationarity random_walk,0.05" "--nonstationarity periodic") #NONSTATIONARY_SETTINGS=("" "--nonstationarity sort" "--nonstationarity periodic" "--nonstationarity sort_partition" "--nonstationarity random_walk,0.05" )
+CLUSTER_COEFFICIENT_SETTINGS="0.0 1.0e10 2.0 1.0 0.5 0.25" #"1.0e10 1.0 0.0" #"5,3 5,3:5,20:8,30:24,5:25,1"
+DRIFT_COEFFICIENT_SETTINGS="2.0 1.0" #"5,3 5,3:5,20:8,30:24,5:25,1"
+DRIFT_RATE_SETTINGS="15s" # 10s" #"999999s 30s 10s 5s" #"5,3 5,3:5,20:8,30:24,5:25,1"
 
 PATCH_SETTINGS="5,3:5,20:8,30:24,5:25,1" #"5,3 5,3:5,20:8,30:24,5:25,1"
 CROP_SETTINGS="0,0,0.5,0.5" #"0,0,0.5,0.5:0,0.5,0.5,1.0:0.5,0,1,0.5:0.5,0.5,1,1"
 CONSTANT_POLICIES="" #"constant:0 constant:1 constant:2"
 ORACLE_POLICIES="" #"oracle:min"
-DYNAMIC_POLICIES="lin-ucb:bias,image_rows,image_cols,filter_rows,filter_cols,image_size:0.5 lin-ucb:bias,image_rows,image_cols,image_size:0.5 lin-ucb:bias:0.5" #"ucb1-normal:0.4" # lin-ucb:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model" # ucb1-normal:0.4 ucb-gaussian-bayes lin-ucb:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model" #"pseudo-ucb gaussian-thompson-sampling lin-ucb:bias,fft_cost_model,matrix_multiply_cost_model,pos_in_partition,global_index,periodic_5" #epsilon-greedy gaussian-thompson-sampling pseudo-ucb linear-thompson-sampling lin-ucb"
+DYNAMIC_POLICIES="linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,filter_cols,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_cols,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,image_size:true:1.0 linear-thompson-sampling:bias:true:1.0 gaussian-thompson-sampling:1.0"
+#"lin-ucb:bias,image_rows,image_cols,filter_rows,filter_cols,image_size:4 lin-ucb:bias,image_rows,image_cols,filter_rows,image_size:4 lin-ucb:bias,image_rows,image_cols,filter_cols,image_size:4 lin-ucb:bias,image_rows,image_cols,image_size:4 lin-ucb:bias:4 ucb1-normal:0.5" # ucb1-normal:0.5" #"ucb1-normal:0.4" # lin-ucb:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model" # ucb1-normal:0.4 ucb-gaussian-bayes lin-ucb:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model" #"pseudo-ucb gaussian-thompson-sampling lin-ucb:bias,fft_cost_model,matrix_multiply_cost_model,pos_in_partition,global_index,periodic_5" #epsilon-greedy gaussian-thompson-sampling pseudo-ucb linear-thompson-sampling lin-ucb"
 
 # Execute the trials
 for CROP_SETTING in $CROP_SETTINGS
@@ -27,7 +29,7 @@ do
         do
             for POLICY in $CONSTANT_POLICIES
             do
-                OUT_CSV="$POLICY-$PATCH_SETTING-$CROP_SETTING-$NONSTATIONARY_SETTING.csv"
+                OUT_CSV="$WORKLOAD_NAME-$POLICY-$PATCH_SETTING-$CROP_SETTING-$NONSTATIONARY_SETTING.csv"
                 echo "Generating $OUT_CSV"
                 flintrock run-command --master-only $BANDITS_CLUSTER "
     cd keystone-example
@@ -48,14 +50,14 @@ do
                 flintrock run-command $BANDITS_CLUSTER "rm spark/work/*/*/*.jar" > /dev/null
             done
 
-            CONSTANT_GLOM="constant:*-$PATCH_SETTING-$CROP_SETTING-$NONSTATIONARY_SETTING.csv"
+            CONSTANT_GLOM="$WORKLOAD_NAME-constant:*-$PATCH_SETTING-$CROP_SETTING-$NONSTATIONARY_SETTING.csv"
             flintrock run-command --master-only $BANDITS_CLUSTER "
     cd keystone-example
     cat $CONSTANT_GLOM > oracle_data.csv
     "
             for POLICY in $ORACLE_POLICIES
             do
-                OUT_CSV="$POLICY-$PATCH_SETTING-$CROP_SETTING-$NONSTATIONARY_SETTING.csv"
+                OUT_CSV="$WORKLOAD_NAME-$POLICY-$PATCH_SETTING-$CROP_SETTING-$NONSTATIONARY_SETTING.csv"
                 echo "Generating $OUT_CSV"
                 flintrock run-command --master-only $BANDITS_CLUSTER "
     cd keystone-example
@@ -80,7 +82,7 @@ do
             do
                 for CLUSTER_COEFFICIENT_SETTING in $CLUSTER_COEFFICIENT_SETTINGS
                 do
-                    for DRIFT_COEFFICIENT_SETTING in $DRIFT_COEFFICIENT_SETTINGS
+                    for DRIFT_COEFFICIENT_SETTING in "$CLUSTER_COEFFICIENT_SETTING"
                     do
                         for DRIFT_RATE_SETTING in $DRIFT_RATE_SETTINGS
                         do
@@ -88,7 +90,7 @@ do
                             do
                                 for POLICY in $DYNAMIC_POLICIES
                                 do
-                                    OUT_CSV="$POLICY-$PATCH_SETTING-$CROP_SETTING-WARMUP_$WARMUP_INDEX-DISTRIBUTED_$DISTRIBUTED_SETTING_INDEX-$NONSTATIONARY_SETTING-$CLUSTER_COEFFICIENT_SETTING-drift-$DRIFT_RATE_SETTING-$DRIFT_COEFFICIENT_SETTING.csv"
+                                    OUT_CSV="$WORKLOAD_NAME-$POLICY-$PATCH_SETTING-$CROP_SETTING-WARMUP_$WARMUP_INDEX-DISTRIBUTED_$DISTRIBUTED_SETTING_INDEX-$NONSTATIONARY_SETTING-$CLUSTER_COEFFICIENT_SETTING-drift-$DRIFT_RATE_SETTING-$DRIFT_COEFFICIENT_SETTING.csv"
                                     echo "Generating $OUT_CSV"
                                     flintrock run-command --master-only $BANDITS_CLUSTER "
                     cd keystone-example
