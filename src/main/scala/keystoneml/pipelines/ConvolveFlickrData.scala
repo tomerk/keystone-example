@@ -62,34 +62,34 @@ abstract class Feature extends Serializable {
 }
 
 case class Bias() extends Feature {
-  override def get(task: ConvolutionTask): Double = 1.0 * 1000.0
+  override def get(task: ConvolutionTask): Double = 1.0
 }
 case class ImageRows() extends Feature {
-  override def get(task: ConvolutionTask): Double = task.image.metadata.yDim * 1000.0
+  override def get(task: ConvolutionTask): Double = task.image.metadata.yDim
 }
 case class ImageCols() extends Feature {
-  override def get(task: ConvolutionTask): Double = task.image.metadata.xDim * 1000.0
+  override def get(task: ConvolutionTask): Double = task.image.metadata.xDim
 }
 case class ImageSize() extends Feature {
-  override def get(task: ConvolutionTask): Double = task.image.metadata.xDim * task.image.metadata.yDim * 1000.0
+  override def get(task: ConvolutionTask): Double = task.image.metadata.xDim * task.image.metadata.yDim
 }
 
 case class FilterRows() extends Feature {
-  override def get(task: ConvolutionTask): Double = task.filters.rows * 1000.0
+  override def get(task: ConvolutionTask): Double = task.filters.rows
 }
 case class FilterCols() extends Feature {
-  override def get(task: ConvolutionTask): Double = task.filters.cols * 1000.0
+  override def get(task: ConvolutionTask): Double = task.filters.cols
 }
 case class FFTFeature() extends Feature {
   override def get(task: ConvolutionTask): Double = {
     task.image.metadata.xDim * task.image.metadata.yDim *
-      (math.log(task.image.metadata.xDim) + math.log(task.image.metadata.yDim)) * 1000.0
+      (math.log(task.image.metadata.xDim) + math.log(task.image.metadata.yDim))
   }
 }
 
 case class MatrixMultiplyFeature() extends Feature {
   override def get(task: ConvolutionTask): Double = {
-    task.image.metadata.xDim * task.image.metadata.yDim * task.filters.cols * task.filters.rows * 1000.0
+    task.image.metadata.xDim * task.image.metadata.yDim * task.filters.cols * task.filters.rows
   }
 }
 
