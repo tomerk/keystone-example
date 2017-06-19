@@ -427,7 +427,7 @@ object ConvolveFlickrData extends Serializable with Logging {
             val action = bandit.applyAndOutputReward(task)._2
             val endTime = System.nanoTime()
 
-            s"$pid,$index,${task.id},${task.image.metadata.xDim},${task.image.metadata.yDim},${task.filters.rows},${task.filters.cols},$startTime,$endTime,${action.arm},${action.reward},${endTime-pStartTime},${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},0\n"
+            s"$pid,$index,${task.id},${task.image.metadata.xDim},${task.image.metadata.yDim},${task.filters.rows},${task.filters.cols},$startTime,$endTime,${action.arm},${action.reward},${endTime-pStartTime},${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},0"
         }
     }.collect()
 
@@ -438,7 +438,7 @@ object ConvolveFlickrData extends Serializable with Logging {
     for (x <- banditResults) {
       writer.write(x + "\n")
     }
-    writer.write(s"-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},${globalEnd - globalStart}")
+    writer.write(s"-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},${globalEnd - globalStart}\n")
     writer.close()
 
     Identity[Image]() andThen Identity()
