@@ -14,29 +14,9 @@ import org.apache.spark.bandit.policies._
 import org.apache.spark.{Partitioner, SparkConf, SparkContext}
 import scopt.OptionParser
 
+import scala.collection.mutable
 import scala.io.Source
 
-case class Crop(startX: Double, startY: Double, endX: Double, endY: Double)
-
-case class Filters(patchSize: Int, numFilters: Int)
-
-case class ConvolveRecord(partitionId: Int,
-                          posInPartition: Int,
-                          canonicalTupleId: String,
-                          imgXDim: Int,
-                          imgYDim: Int,
-                          filterRows: Int,
-                          filterCols: Int,
-                          reward: Double,
-                          arm: Int)
-
-case class ConvolutionTask(id: String,
-                           image: Image,
-                           filters: DenseMatrix[Double],
-                          globalIndex: Int,
-                          partitionId: Int,
-                          indexInPartition: Int,
-                          var autoregressiveFeatures: Array[Double])
 
 /*
 // When patches = 5,3 everywhere
@@ -56,54 +36,15 @@ object DebugCholesky extends Serializable with Logging {
 }
  */
 
-
-abstract class Feature extends Serializable {
-  def get(task: ConvolutionTask): Double
-}
-
-case class Bias() extends Feature {
-  override def get(task: ConvolutionTask): Double = 1.0
-}
-case class ImageRows() extends Feature {
-  override def get(task: ConvolutionTask): Double = task.image.metadata.yDim
-}
-case class ImageCols() extends Feature {
-  override def get(task: ConvolutionTask): Double = task.image.metadata.xDim
-}
-case class ImageSize() extends Feature {
-  override def get(task: ConvolutionTask): Double = task.image.metadata.xDim * task.image.metadata.yDim
-}
-
-case class FilterRows() extends Feature {
-  override def get(task: ConvolutionTask): Double = task.filters.rows
-}
-case class FilterCols() extends Feature {
-  override def get(task: ConvolutionTask): Double = task.filters.cols
-}
-case class FFTFeature() extends Feature {
-  override def get(task: ConvolutionTask): Double = {
-    task.image.metadata.xDim * task.image.metadata.yDim *
-      (math.log(task.image.metadata.xDim) + math.log(task.image.metadata.yDim))
+object PatchMatContainer extends Serializable {
+  @transient lazy val matrices = {
+    val res = new ThreadLocal[mutable.Map[(Int, Int, Int, Int), DenseMatrix[Double]]]()
+    res.set(mutable.Map.empty)
+    res
   }
 }
 
-case class MatrixMultiplyFeature() extends Feature {
-  override def get(task: ConvolutionTask): Double = {
-    task.image.metadata.xDim * task.image.metadata.yDim * task.filters.cols * task.filters.rows
-  }
-}
-
-case class GlobalIndex() extends Feature {
-  override def get(task: ConvolutionTask): Double = task.globalIndex
-}
-case class PosInPartition() extends Feature {
-  override def get(task: ConvolutionTask): Double = task.indexInPartition
-}
-case class Periodic(period: Int) extends Feature {
-  override def get(task: ConvolutionTask): Double = task.indexInPartition % period
-}
-
-object ConvolveFlickrData extends Serializable with Logging {
+object ConvolveFixedSizeFlickrData extends Serializable with Logging {
 
   def makeFeatures(features: String): (ConvolutionTask => DenseVector[Double], Int) = {
     val featureList: Array[Feature] = features.split(',').map {
@@ -161,12 +102,20 @@ object ConvolveFlickrData extends Serializable with Logging {
 
   def matMultConvolve(task: ConvolutionTask): Image = {
     val imgInfo = task.image.metadata
-    new Convolver(
+    val conv = new Convolver(
       task.filters,
       imgInfo.xDim,
       imgInfo.yDim,
       imgInfo.numChannels,
-      normalizePatches = false).apply(task.image)
+      normalizePatches = false)
+
+    val patchMat = PatchMatContainer.matrices.get().getOrElseUpdate(
+      (imgInfo.xDim, imgInfo.yDim, task.filters.rows, task.filters.cols), {
+        new DenseMatrix[Double](conv.resWidth*conv.resHeight, conv.convSize*conv.convSize*imgInfo.numChannels)
+    })
+
+    Convolver.convolve(task.image, patchMat, conv.resWidth, conv.resHeight,
+      imgInfo.numChannels, conv.convSize, false, None, conv.convolutions)
   }
 
   def fftConvolve(task: ConvolutionTask): Image = {
@@ -182,7 +131,7 @@ object ConvolveFlickrData extends Serializable with Logging {
   }
 
 
-  val appName = "PrepFlickrData"
+  val appName = "fixedSizeFlickr"
 
   def run(sc: SparkContext, conf: RandomCifarConfig): Pipeline[Image, Image] = {
     //Set up some constants.
@@ -266,10 +215,10 @@ object ConvolveFlickrData extends Serializable with Logging {
         case (Crop(startX, startY, endX, endY), cropIndex) =>
           ((id.toInt, cropIndex), ImageUtils.crop(
             img,
-            (img.metadata.xDim * startX).toInt,
-            (img.metadata.yDim * startY).toInt,
-            (img.metadata.xDim * endX).toInt,
-            (img.metadata.yDim * endY).toInt
+            startX.toInt,
+            startY.toInt,
+            endX.toInt,
+            endY.toInt
           ))
     }}.repartitionAndSortWithinPartitions(new Partitioner {
       override def numPartitions = conf.numParts
@@ -489,7 +438,7 @@ object ConvolveFlickrData extends Serializable with Logging {
   def main(args: Array[String]) = {
     val appConfig = parse(args)
 
-    val conf = new SparkConf().setAppName(s"$appName-${appConfig.crops}-${appConfig.patches}-${appConfig.policy}-${appConfig.communicationRate}-${appConfig.disableMulticore}").set(
+    val conf = new SparkConf().setAppName(s"$appName-${appConfig.policy}-${appConfig.nonstationarity}-${appConfig.crops}-${appConfig.patches}-${appConfig.policy}-${appConfig.communicationRate}-${appConfig.disableMulticore}").set(
       "spark.bandits.communicationRate",
       appConfig.communicationRate).set(
       "spark.bandits.clusterCoefficient",
