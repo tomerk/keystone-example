@@ -37,11 +37,7 @@ object DebugCholesky extends Serializable with Logging {
  */
 
 object PatchMatContainer extends Serializable {
-  @transient lazy val matrices = {
-    val res = new ThreadLocal[mutable.Map[(Int, Int, Int, Int), DenseMatrix[Double]]]()
-    res.set(mutable.Map.empty)
-    res
-  }
+  @transient lazy val matrices = new ThreadLocal[mutable.Map[(Int, Int, Int, Int), DenseMatrix[Double]]]()
 }
 
 object ConvolveFixedSizeFlickrData extends Serializable with Logging {
@@ -109,7 +105,13 @@ object ConvolveFixedSizeFlickrData extends Serializable with Logging {
       imgInfo.numChannels,
       normalizePatches = false)
 
-    val patchMat = PatchMatContainer.matrices.get().getOrElseUpdate(
+    var con = PatchMatContainer.matrices.get()
+    if (con == null) {
+      con = mutable.Map.empty
+      PatchMatContainer.matrices.set(con)
+    }
+
+    val patchMat = con.getOrElseUpdate(
       (imgInfo.xDim, imgInfo.yDim, task.filters.rows, task.filters.cols), {
         new DenseMatrix[Double](conv.resWidth*conv.resHeight, conv.convSize*conv.convSize*imgInfo.numChannels)
     })
