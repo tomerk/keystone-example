@@ -72,6 +72,11 @@ case class RegexDocLength() extends RegexFeature {
   override def get(task: RegexTask): Double = task.doc.length
 }
 
+object CommonCrawlInfoContainer extends Serializable {
+  @transient lazy val threadStartTime = new ThreadLocal[Long]()
+  @transient lazy val indexInThread = new ThreadLocal[Long]()
+}
+
 /**
  * Extract regex from common crawl files
  */
@@ -237,24 +242,30 @@ object CommonCrawlRegex extends Serializable with Logging {
       }.count()
     }
 
+
+    val globalStart = System.currentTimeMillis()
     val banditResults = commoncrawl.mapPartitionsWithIndex {
       case (pid, it) =>
-
         it.zipWithIndex.map {
           case (task, index) =>
             val startTime = System.nanoTime()
             val (res, action) = bandit.applyAndOutputReward(task)
             val endTime = System.nanoTime()
 
-            s"$pid,$index,${task.id},${task.doc.length},$startTime,$endTime,${action.arm},${action.reward},${conf.regex},${res.length},${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate}"
+            s"$pid,$index,${task.id},${task.doc.length},$startTime,$endTime,${action.arm},${action.reward},${Thread.currentThread().getId},${conf.regex},${res.length},${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},0"
         }
     }.collect()
+    val globalEnd = System.currentTimeMillis()
+
 
     val writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(conf.outputLocation)))
-    writer.write("partition_id,pos_in_partition,canonical_tuple_id,doc_length,system_nano_start_time,system_nano_end_time,arm,reward,regex,num_matches,policy,nonstationarity,driftRate,driftCoefficient,clusterCoefficient,communicationRate\n")
+    writer.write("partition_id,pos_in_partition,canonical_tuple_id,doc_length,system_nano_start_time,system_nano_end_time,arm,reward,thread_id,regex,num_matches,policy,nonstationarity,driftRate,driftCoefficient,clusterCoefficient,communicationRate,globalTime\n")
     for (x <- banditResults) {
       writer.write(x + "\n")
     }
+
+    writer.write(s"-1,-1,-1,-1,-1,-1,-1,0,-1,${conf.regex},-1,${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},${globalEnd - globalStart}\n")
+
     writer.close()
   }
 
