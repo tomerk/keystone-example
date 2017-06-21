@@ -243,6 +243,13 @@ object ConvolveFlickrData extends Serializable with Logging {
         case Array("linear-thompson-sampling", featureString, useCholesky, varMultiplier) =>
           val (features, numFeatures) = makeFeatures(featureString)
           sc.contextualBandit(convolutionOps, features, LinThompsonSamplingPolicyParams(numFeatures, varMultiplier.toDouble, useCholesky = useCholesky.toBoolean, usingBias = true))
+        case Array("slinear-thompson-sampling", featureString) =>
+          val (features, numFeatures) = makeFeatures(featureString)
+          sc.contextualBandit(convolutionOps, features, new StandardizedLinThompsonSamplingPolicy(convolutionOps.length, numFeatures, 1.0, useCholesky = true))
+        case Array("slinear-thompson-sampling", featureString, useCholesky, varMultiplier) =>
+          val (features, numFeatures) = makeFeatures(featureString)
+          sc.contextualBandit(convolutionOps, features, new StandardizedLinThompsonSamplingPolicy(convolutionOps.length, numFeatures, varMultiplier.toDouble, useCholesky = useCholesky.toBoolean))
+
         case Array("lin-ucb", featureString) =>
           val (features, numFeatures) = makeFeatures(featureString)
           sc.contextualBandit(convolutionOps, features, LinUCBPolicyParams(numFeatures))
