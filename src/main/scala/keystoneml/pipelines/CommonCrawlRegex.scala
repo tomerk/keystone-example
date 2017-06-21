@@ -194,6 +194,12 @@ object CommonCrawlRegex extends Serializable with Logging {
       case Array("linear-thompson-sampling", featureString, useCholesky, varMultiplier) =>
         val (features, numFeatures) = makeFeatures(featureString)
         sc.contextualBandit(regexOps, features, LinThompsonSamplingPolicyParams(numFeatures, varMultiplier.toDouble, useCholesky = useCholesky.toBoolean))
+      case Array("slinear-thompson-sampling", featureString) =>
+        val (features, numFeatures) = makeFeatures(featureString)
+        sc.contextualBandit(regexOps, features, new StandardizedLinThompsonSamplingPolicy(regexOps.length, numFeatures, 1.0, useCholesky = true))
+      case Array("slinear-thompson-sampling", featureString, useCholesky, varMultiplier) =>
+        val (features, numFeatures) = makeFeatures(featureString)
+        sc.contextualBandit(regexOps, features, new StandardizedLinThompsonSamplingPolicy(regexOps.length, numFeatures, varMultiplier.toDouble, useCholesky = useCholesky.toBoolean))
       case Array("lin-ucb", featureString) =>
         val (features, numFeatures) = makeFeatures(featureString)
         sc.contextualBandit(regexOps, features, LinUCBPolicyParams(numFeatures))
