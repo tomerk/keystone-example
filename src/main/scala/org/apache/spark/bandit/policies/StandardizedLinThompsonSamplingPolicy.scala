@@ -67,7 +67,7 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
       val featureCov = (currArmFeaturesAcc / n) - (featureMeans * featureMeans.t)
 
       val featureStdDev = sqrt(diag(featureCov)).map(x => if (x <= 1e-9) 1.0 else x)
-      val featureCorr = featureCov :/ (featureStdDev * featureStdDev.t)
+      val featureCorr = n * featureCov :/ (featureStdDev * featureStdDev.t)
 
       val rewardStdDev = {
         val sd = math.sqrt(armRewardsStats.variance)
@@ -77,7 +77,7 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
           sd
         }
       }
-      val scaledRewards = ((armRewardsAcc / n) - (featureMeans * armRewardsStats.mean)) :/ (featureStdDev * rewardStdDev)
+      val scaledRewards = (armRewardsAcc - (armFeatureSumAcc * armRewardsStats.mean)) :/ (featureStdDev * rewardStdDev)
 
 
       val regVec = DenseVector.fill(numFeatures)(regParam)
@@ -88,7 +88,7 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
       val coefficientDist = InverseCovarianceMultivariateGaussian(
         coefficientMean,
         // We divide because this is the inverse covariance
-        featureCorr / (v * numFeatures * armRewardsStats.variance),
+        featureCorr / (v * numFeatures * 1.0),
         useCholesky = useCholesky)
       val coefficientSample = coefficientDist.draw()
 
