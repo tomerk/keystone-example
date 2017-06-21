@@ -1,11 +1,11 @@
 #!/bin/bash
 BANDITS_CLUSTER="${BANDITS_CLUSTER:-bandits-cluster}"
-NUM_PARTS=32 #32
+NUM_PARTS="${NUM_PARTS:-32}" #32
 KEYSTONE_MEM=20g
 WORKLOAD_NAME="flickr-$BANDITS_CLUSTER"
 
 #declare -a DISTRIBUTED_SETTINGS=("" "--communicationRate 0s" "--disableMulticore")
-declare -a DISTRIBUTED_SETTINGS=("--communicationRate 500ms")
+declare -a DISTRIBUTED_SETTINGS=("--communicationRate 500ms" "--disableMulticore")
 #declare -a WARMUP_SETTINGS=("" "--warmup 5")
 declare -a WARMUP_SETTINGS=("--warmup 5")
 NONSTATIONARY_SETTINGS="stationary" # random_walk,0.05" #"stationary sort sort_partitions random_walk,0.05 global_random_walk,0.05" #"stationary sort_partitions sort random_walk,0.05 global_random_walk,0.05" #("--nonstationarity sort_partitions" "--nonstationarity global_random_walk,0.05") #"--nonstationarity sort" "--nonstationarity random_walk,0.05" "--nonstationarity periodic") #NONSTATIONARY_SETTINGS=("" "--nonstationarity sort" "--nonstationarity periodic" "--nonstationarity sort_partition" "--nonstationarity random_walk,0.05" )
@@ -13,11 +13,12 @@ CLUSTER_COEFFICIENT_SETTINGS="1.0e10" #"0.0 1.0e10 2.0 1.0 0.5 0.25" #"1.0e10 1.
 DRIFT_COEFFICIENT_SETTINGS="1.0e10" #"5,3 5,3:5,20:8,30:24,5:25,1"
 DRIFT_RATE_SETTINGS="15s" # 10s" #"999999s 30s 10s 5s" #"5,3 5,3:5,20:8,30:24,5:25,1"
 
-PATCH_SETTINGS="5,3:5,20:8,30:24,5:25,1 5,3 5,25 25,5" #"5,3 5,3:5,20:8,30:24,5:25,1"
+PATCH_SETTINGS="5,3:5,20:8,30:24,5:25,1" #"5,3 5,25 25,5" #"5,3 5,3:5,20:8,30:24,5:25,1"
 CROP_SETTINGS="0,0,0.5,0.5" #"0,0,0.5,0.5:0,0.5,0.5,1.0:0.5,0,1,0.5:0.5,0.5,1,1"
 CONSTANT_POLICIES="constant:0 constant:1 constant:2"
 ORACLE_POLICIES="oracle:min"
-DYNAMIC_POLICIES="linear-thompson-sampling:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model:true:1.0 linear-thompson-sampling:bias:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,filter_cols,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_cols,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,image_size:true:1.0 gaussian-thompson-sampling:1.0 gaussian-thompson-sampling:2.0 gaussian-thompson-sampling:0.5"
+DYNAMIC_POLICIES="slinear-thompson-sampling:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model:true:1.0 slinear-thompson-sampling:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model:true:0.5 slinear-thompson-sampling:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model:true:0.25 slinear-thompson-sampling:bias:true:1.0 slinear-thompson-sampling:image_rows,image_cols,filter_rows,filter_cols,image_size:true:1.0 slinear-thompson-sampling:image_rows,image_cols,filter_rows,image_size:true:1.0 slinear-thompson-sampling:image_rows,image_cols,filter_cols,image_size:true:1.0 slinear-thompson-sampling:image_rows,image_cols,image_size:true:1.0  gaussian-thompson-sampling:1.0 gaussian-thompson-sampling:2.0 gaussian-thompson-sampling:0.5 linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model:true:1.0 linear-thompson-sampling:bias:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,filter_cols,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_cols,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,image_size:true:1.0"
+#DYNAMIC_POLICIES="linear-thompson-sampling:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model:true:1.0 linear-thompson-sampling:bias:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,filter_cols,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_cols,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,image_size:true:1.0 gaussian-thompson-sampling:1.0 gaussian-thompson-sampling:2.0 gaussian-thompson-sampling:0.5"
 #"lin-ucb:bias,image_rows,image_cols,filter_rows,filter_cols,image_size:4 lin-ucb:bias,image_rows,image_cols,filter_rows,image_size:4 lin-ucb:bias,image_rows,image_cols,filter_cols,image_size:4 lin-ucb:bias,image_rows,image_cols,image_size:4 lin-ucb:bias:4 ucb1-normal:0.5" # ucb1-normal:0.5" #"ucb1-normal:0.4" # lin-ucb:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model" # ucb1-normal:0.4 ucb-gaussian-bayes lin-ucb:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model" #"pseudo-ucb gaussian-thompson-sampling lin-ucb:bias,fft_cost_model,matrix_multiply_cost_model,pos_in_partition,global_index,periodic_5" #epsilon-greedy gaussian-thompson-sampling pseudo-ucb linear-thompson-sampling lin-ucb"
 
 # Execute the trials

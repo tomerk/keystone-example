@@ -434,18 +434,18 @@ object ConvolveFlickrData extends Serializable with Logging {
             val action = bandit.applyAndOutputReward(task)._2
             val endTime = System.nanoTime()
 
-            s"$pid,$index,${task.id},${task.image.metadata.xDim},${task.image.metadata.yDim},${task.filters.rows},${task.filters.cols},$startTime,$endTime,${action.arm},${action.reward},${endTime-pStartTime},${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${'"' + conf.crops + '"'},${'"' + conf.patches + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},0"
+            s"$pid,$index,${task.id},${task.image.metadata.xDim},${task.image.metadata.yDim},${task.filters.rows},${task.filters.cols},$startTime,$endTime,${action.arm},${action.reward},${endTime-pStartTime},${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${'"' + conf.crops + '"'},${'"' + conf.patches + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},${conf.disableMulticore},${conf.numParts},0"
         }
     }.collect()
 
     val globalEnd = System.currentTimeMillis()
 
     val writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(conf.outputLocation)))
-    writer.write("partition_id,pos_in_partition,canonical_tuple_id,img_x_dim,img_y_dim,filter_rows,filter_cols,system_nano_start_time,system_nano_end_time,arm,reward,partition_running_nanos,policy,nonstationarity,crops,patches,driftRate,driftCoefficient,clusterCoefficient,communicationRate,globalTime\n")
+    writer.write("partition_id,pos_in_partition,canonical_tuple_id,img_x_dim,img_y_dim,filter_rows,filter_cols,system_nano_start_time,system_nano_end_time,arm,reward,partition_running_nanos,policy,nonstationarity,crops,patches,driftRate,driftCoefficient,clusterCoefficient,communicationRate,disableMulticore,numParts,globalTime\n")
     for (x <- banditResults) {
       writer.write(x + "\n")
     }
-    writer.write(s"-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${'"' + conf.crops + '"'},${'"' + conf.patches + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},${globalEnd - globalStart}\n")
+    writer.write(s"-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${'"' + conf.crops + '"'},${'"' + conf.patches + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},${conf.disableMulticore},${conf.numParts},${globalEnd - globalStart}\n")
     writer.close()
 
     Identity[Image]() andThen Identity()
