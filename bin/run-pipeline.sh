@@ -22,6 +22,6 @@ else
     --conf spark.executor.extraClassPath=target/scala-2.11/keystone-app-assembly.jar \
     --driver-memory $KEYSTONE_MEM \
     --executor-memory $KEYSTONE_MEM \
-    target/scala-2.11/keystone-app-assembly.jar \
+    local:/home/ec2-user/keystone-example/target/scala-2.11/keystone-app-assembly.jar \
     "$@"
 fi
