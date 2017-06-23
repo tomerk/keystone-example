@@ -81,9 +81,9 @@ object CommonCrawlInfoContainer extends Serializable {
  * Extract regex from common crawl files
  */
 object CommonCrawlRegex extends Serializable with Logging {
-  def regexMatcher(factory: RegexContainer, task: RegexTask): mutable.Buffer[Array[String]] = {
+  def regexMatcher(factory: RegexContainer, task: RegexTask): Int = {
     val matcher = factory.regex
-    matcher.getMatches(task.doc, Array(0)).asScala.toBuffer
+    matcher.getMatches(task.doc, Array(0)).asScala.length
   }
 
   val appName = "CommonCrawlRegex"
@@ -157,9 +157,9 @@ object CommonCrawlRegex extends Serializable with Logging {
     )
 
     //val regexes = conf.regex.split("....")
-    val regexOps: Seq[RegexTask => mutable.Buffer[Array[String]]] = RegexFactoryContainer.factories.indices.map(i => regexMatcher(RegexContainer(i, conf.regex), _: RegexTask))
+    val regexOps: Seq[RegexTask => Int] = RegexFactoryContainer.factories.indices.map(i => regexMatcher(RegexContainer(i, conf.regex), _: RegexTask))
 
-    val bandit: BanditTrait[RegexTask, mutable.Buffer[Array[String]]] = conf.policy.trim.toLowerCase.split(':') match {
+    val bandit: BanditTrait[RegexTask, Int] = conf.policy.trim.toLowerCase.split(':') match {
       // Constant Policies
       case Array("constant", arm) =>
         new ConstantBandit(arm.toInt, regexOps(arm.toInt))
@@ -252,7 +252,7 @@ object CommonCrawlRegex extends Serializable with Logging {
             val (res, action) = bandit.applyAndOutputReward(task)
             val endTime = System.nanoTime()
 
-            s"$pid,$index,${task.id},${task.doc.length},$startTime,$endTime,${action.arm},${action.reward},${Thread.currentThread().getId},${conf.regex},${res.length},${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},0"
+            s"$pid,$index,${task.id},${task.doc.length},$startTime,$endTime,${action.arm},${action.reward},${Thread.currentThread().getId},${conf.regex},${res},${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},0"
         }
     }.collect()
     val globalEnd = System.currentTimeMillis()
@@ -260,8 +260,11 @@ object CommonCrawlRegex extends Serializable with Logging {
 
     val writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(conf.outputLocation)))
     writer.write("partition_id,pos_in_partition,canonical_tuple_id,doc_length,system_nano_start_time,system_nano_end_time,arm,reward,thread_id,regex,num_matches,policy,nonstationarity,driftRate,driftCoefficient,clusterCoefficient,communicationRate,globalTime\n")
-    for (x <- banditResults) {
-      writer.write(x + "\n")
+
+    if (conf.logPartitionInfo) {
+      for (x <- banditResults) {
+        writer.write(x + "\n")
+      }
     }
 
     writer.write(s"-1,-1,-1,-1,-1,-1,-1,0,-1,${conf.regex},-1,${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},${globalEnd - globalStart}\n")
@@ -275,6 +278,7 @@ object CommonCrawlRegex extends Serializable with Logging {
       policy: String = "",
       regex: Int = 0,
       nonstationarity: String = "stationary",
+      logPartitionInfo: Boolean = false,
       communicationRate: String = "500ms",
       clusterCoefficient: String = "1.0",
       driftDetectionRate: String = "10s",
@@ -290,6 +294,7 @@ object CommonCrawlRegex extends Serializable with Logging {
     opt[String]("policy") required() action { (x,c) => c.copy(policy=x) }
     opt[String]("regex") required() action { (x,c) => c.copy(regex=x.toInt) }
     opt[String]("nonstationarity") action { (x,c) => c.copy(nonstationarity=x) }
+    opt[String]("logPartitionInfo") action { (x,c) => c.copy(logPartitionInfo=x.toBoolean) }
     opt[String]("communicationRate") action { (x,c) => c.copy(communicationRate=x) }
     opt[String]("clusterCoefficient") action { (x,c) => c.copy(clusterCoefficient=x) }
     opt[String]("driftDetectionRate") action { (x,c) => c.copy(driftDetectionRate=x) }
