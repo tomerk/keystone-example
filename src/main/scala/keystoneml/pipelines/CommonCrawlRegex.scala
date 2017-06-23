@@ -252,14 +252,14 @@ object CommonCrawlRegex extends Serializable with Logging {
             val (res, action) = bandit.applyAndOutputReward(task)
             val endTime = System.nanoTime()
 
-            s"$pid,$index,${task.id},${task.doc.length},$startTime,$endTime,${action.arm},${action.reward},${Thread.currentThread().getId},${conf.regex},${res},${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},0"
+            s"$pid,$index,${task.id},${task.doc.length},$startTime,$endTime,${action.arm},${action.reward},${Thread.currentThread().getId},${conf.regex},${res},${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},${conf.disableMulticore},${conf.numParts},0"
         }
     }.collect()
     val globalEnd = System.currentTimeMillis()
 
 
     val writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(conf.outputLocation)))
-    writer.write("partition_id,pos_in_partition,canonical_tuple_id,doc_length,system_nano_start_time,system_nano_end_time,arm,reward,thread_id,regex,num_matches,policy,nonstationarity,driftRate,driftCoefficient,clusterCoefficient,communicationRate,globalTime\n")
+    writer.write("partition_id,pos_in_partition,canonical_tuple_id,doc_length,system_nano_start_time,system_nano_end_time,arm,reward,thread_id,regex,num_matches,policy,nonstationarity,driftRate,driftCoefficient,clusterCoefficient,communicationRate,disableMulticore,numParts,globalTime\n")
 
     if (conf.logPartitionInfo) {
       for (x <- banditResults) {
@@ -267,7 +267,7 @@ object CommonCrawlRegex extends Serializable with Logging {
       }
     }
 
-    writer.write(s"-1,-1,-1,-1,-1,-1,-1,0,-1,${conf.regex},-1,${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},${globalEnd - globalStart}\n")
+    writer.write(s"-1,-1,-1,-1,-1,-1,-1,0,-1,${conf.regex},-1,${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},${conf.disableMulticore},${conf.numParts},${globalEnd - globalStart}\n")
 
     writer.close()
   }
@@ -279,6 +279,7 @@ object CommonCrawlRegex extends Serializable with Logging {
       regex: Int = 0,
       nonstationarity: String = "stationary",
       logPartitionInfo: Boolean = false,
+      disableMulticore: Boolean = false,
       communicationRate: String = "500ms",
       clusterCoefficient: String = "1.0",
       driftDetectionRate: String = "10s",
@@ -299,6 +300,7 @@ object CommonCrawlRegex extends Serializable with Logging {
     opt[String]("clusterCoefficient") action { (x,c) => c.copy(clusterCoefficient=x) }
     opt[String]("driftDetectionRate") action { (x,c) => c.copy(driftDetectionRate=x) }
     opt[String]("driftCoefficient") action { (x,c) => c.copy(driftCoefficient=x) }
+    opt[Unit]("disableMulticore") action { (x,c) => c.copy(disableMulticore=true) }
     opt[Int]("warmup") action { (x,c) => c.copy(warmup=Some(x)) }
     opt[Int]("numParts") action { (x,c) => c.copy(numParts=x) }
   }.parse(args, PipelineConfig()).get
@@ -324,11 +326,19 @@ object CommonCrawlRegex extends Serializable with Logging {
     val z = y.getMatches("Should match 3 ou 6 digits hexadecimal numbers\n#fff #FFF #Fff #ff004B\nAll numerical values can have leading zeros. Percentages can have decimals.\nWhite spaces are allowed before and after values.\nShould match rgb() colors with 3 values all between 0 and 255\nrgb(0,0,0) RGB(124, 100, 0) rgb(255,255,255) Rgb( 0255, 00001, 02)\nShould match rgb() colors using percentages all between 0 and 100\nrgb(10%,10%,10%) rgb(100.0%, 2.5%, 0%) rgb(00010%, 0002%, 001%)\nShould match rgba() colors with 3 values between 0 and 255 plus 1 decimal value between 0 and 1\nrgba(255 , 0 , 0, 0.5 ) rgba(1,1,1,0.255) rgba(0,0,0,0)\nShould match rgba() colors using 3 percentage values between 0 and 100 plus 1 decimal value between 0 and 1\nrgba(10%,10% , 10%, 0.2) rgba(10%, 0025.2%, 1%, 0.0001)\nShould match hsl() colors with first value between 0 and 360 and 2 more percentage values between 0 and 100\nhsl(0,20%,100%) HsL(360,10% , 0.2% ) hsl(000350, 002%, 0004.1%)\nShould match hsl() colors with first value between 0 and 360 and 2 more percentage values between 0 and 100 plus 1 decimal value between 0 and 1\nhsla(140,2%,50%,0.2) hsla(0,0%,0%,0) hsla(001,002%,00001.2%,0000.254)\n\nShould NOT match hexadecimal numbers with not exactly 3 or 6 digits\n#f #ff #ffff #fffff #fffffff\nShould NOT match invalid hexadecimal values\n#ffg #fffffg\nShould NOT allow space between function and opening parenthesis\nrgb (0,0,0) rgba (0,0,0,0) rgb (0%,0%,0%) rgba (0%,0%,0%,0) hsl (0,0%,0%) hsla (0,0%,0%,0)\nShould NOT match rgb() nor hsl() colors with more or less than 3 values\nrgb(0,0,0,0) rgb(0,0) hsl(0,0%,0%,0) hsl(0,0%)\nShould NOT match rgba() nor hsla() colors with more or less than 4 values\nrgba(0,0,0) rgba(0,0,0,0,0) hsla(0,0%,0%) hsla(0,0%,0%,0,0)\nShould NOT allow rgb values over 255, nor rgb values with decimals\nrgb(256,0,0) rgb(100.2,0,0)\nShould NOT allow percentages over 100\nrgb(120%,10%,1%) hsl(200, 101%, 10%)\nShould NOT allow alpha values over 1\nrgba(0,0,0,1.2) hsla(120, 50%, 50%, 1.3)\nShould NOT allow hue values over 360\nhsl(361,50%,50%) hsla(361,50%,50%,0.5)\nShould NOT match invalid hsl format\nhsl(1%,2%,3%) hsl(5,6,7)\nShould NOT match rgb() colors with mixed percentages and integers\nrgb(255, 10%, 0) rgb(10%, 255, 0) rgba(10%, 255, 0, 0.3)", Array(0)).asScala.toArray
     val appConfig = parse(args)
 
-    val conf = new SparkConf().setAppName(s"$appName-${appConfig.policy}-${appConfig.communicationRate}").set(
-      "spark.bandits.communicationRate",
-      appConfig.communicationRate)
-      .set("spark.bandits.driftDetectionRate", appConfig.driftDetectionRate)
-      .set("spark.bandits.alwaysShare", "true")
+    val conf = if (!appConfig.disableMulticore) {
+      new SparkConf().setAppName(s"$appName-${appConfig.policy}")
+        .set("spark.bandits.driftDetectionRate", "99999999s")
+        .set("spark.bandits.alwaysShare", "true")
+        .set("spark.bandits.clusterCoefficient", "1e10")
+        .set("spark.bandits.communicationRate", "500ms")
+    } else {
+      new SparkConf().setAppName(s"$appName-${appConfig.policy}")
+        .set("spark.bandits.driftDetectionRate", "99999999s")
+        .set("spark.bandits.alwaysShare", "false")
+        .set("spark.bandits.clusterCoefficient", "-1e10")
+        .set("spark.bandits.communicationRate", "99999999s")
+    }
 
     conf.setIfMissing("spark.master", "local[4]")
     val sc = new SparkContext(conf)

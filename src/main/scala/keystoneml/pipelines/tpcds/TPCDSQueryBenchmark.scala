@@ -56,6 +56,8 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
                              clusterCoefficient: String = "1.0",
                              driftDetectionRate: String = "5s",
                              driftCoefficient: String = "1.0",
+                             disableMulticore: Boolean = false,
+                             numNodes: Int = 8,
                              warmup: Option[Int] = None)
 
   case class SparkSetting(key: String, value: String) {
@@ -79,10 +81,12 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
           SparkSetting(key, value)
       }}) }
     opt[String]("nonstationarity") action { (x,c) => c.copy(nonstationarity=x) }
+    opt[String]("numNodes") action { (x,c) => c.copy(numNodes=x.toInt) }
     opt[String]("communicationRate") action { (x,c) => c.copy(communicationRate=x) }
     opt[String]("clusterCoefficient") action { (x,c) => c.copy(clusterCoefficient=x) }
     opt[String]("driftDetectionRate") action { (x,c) => c.copy(driftDetectionRate=x) }
     opt[String]("driftCoefficient") action { (x,c) => c.copy(driftCoefficient=x) }
+    opt[Unit]("disableMulticore") action { (x,c) => c.copy(disableMulticore=true) }
     opt[Int]("warmup") action { (x,c) => c.copy(warmup=Some(x)) }
   }.parse(args, PipelineConfig()).get
 
@@ -291,13 +295,13 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
       val joinTime = SparkNamespaceUtils.stageRunTime(spark, nextStagesWithJoins.diff(stagesWithJoins))
       stagesWithJoins = nextStagesWithJoins
 
-      s"$index,$query,${action.arm},${action.reward},${conf.confSettings(action.arm).map(_.value).mkString(",")},$startTime,$endTime,$totalExecutorJoinTime,$joinTime,${'"' + conf.policy + '"'},${'"' + conf.queryGenRules + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate}"
+      s"$index,$query,${action.arm},${action.reward},${conf.confSettings(action.arm).map(_.value).mkString(",")},$startTime,$endTime,$totalExecutorJoinTime,$joinTime,${'"' + conf.policy + '"'},${'"' + conf.queryGenRules + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},${conf.disableMulticore},${conf.numNodes}"
 
 
     }
 
     val writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(conf.outputLocation)))
-    writer.write(s"index,query,arm,reward,${settingKeys.mkString(",")},system_nano_start_time,system_nano_end_time,totalExecutorJoinTime,joinTime,policy,query_gen_rules,driftRate,driftCoefficient,clusterCoefficient,communicationRate\n")
+    writer.write(s"index,query,arm,reward,${settingKeys.mkString(",")},system_nano_start_time,system_nano_end_time,totalExecutorJoinTime,joinTime,policy,query_gen_rules,driftRate,driftCoefficient,clusterCoefficient,communicationRate,disableMulticore,numNodes\n")
 
     for (x <- banditResults) {
       writer.write(x + "\n")
@@ -314,11 +318,21 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
   def main(args: Array[String]) = {
     val appConfig = parse(args)
 
-    val conf = new SparkConf().setAppName(s"$appName")
-      .set("spark.sql.parquet.compression.codec", "snappy")
-      .set("spark.bandits.driftDetectionRate", "99999999s")
-      .set("spark.bandits.alwaysShare", "true")
-      .set("spark.bandits.communicationRate", "500ms")
+    val conf = if (!appConfig.disableMulticore) {
+      new SparkConf().setAppName(s"$appName")
+        .set("spark.sql.parquet.compression.codec", "snappy")
+        .set("spark.bandits.driftDetectionRate", "99999999s")
+        .set("spark.bandits.alwaysShare", "true")
+        .set("spark.bandits.clusterCoefficient", "1e10")
+        .set("spark.bandits.communicationRate", "500ms")
+    } else {
+      new SparkConf().setAppName(s"$appName")
+        .set("spark.sql.parquet.compression.codec", "snappy")
+        .set("spark.bandits.driftDetectionRate", "99999999s")
+        .set("spark.bandits.alwaysShare", "false")
+        .set("spark.bandits.clusterCoefficient", "-1e10")
+        .set("spark.bandits.communicationRate", "99999999s")
+    }
 
     conf.setIfMissing("spark.master", "local[4]")
     val sc = new SparkContext(conf)
