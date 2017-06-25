@@ -465,6 +465,7 @@ object ConvolveFlickrData extends Serializable with Logging {
       driftDetectionRate: String = "5s",
       driftCoefficient: String = "1.0",
       disableMulticore: Boolean = false,
+      disableAlwaysShare: Boolean = false,
       warmup: Option[Int] = None,
       numParts: Int = 64)
 
@@ -484,6 +485,7 @@ object ConvolveFlickrData extends Serializable with Logging {
     opt[String]("driftDetectionRate") action { (x,c) => c.copy(driftDetectionRate=x) }
     opt[String]("driftCoefficient") action { (x,c) => c.copy(driftCoefficient=x) }
     opt[Unit]("disableMulticore") action { (x,c) => c.copy(disableMulticore=true) }
+    opt[Unit]("disableAlwaysShare") action { (x,c) => c.copy(disableAlwaysShare=true) }
     opt[Int]("warmup") action { (x,c) => c.copy(warmup=Some(x)) }
     opt[Int]("numParts") action { (x,c) => c.copy(numParts=x) }
   }.parse(args, RandomCifarConfig()).get
@@ -506,7 +508,7 @@ object ConvolveFlickrData extends Serializable with Logging {
       "spark.bandits.driftCoefficient",
       appConfig.driftCoefficient)
     .set("spark.bandits.contextCombinedWeights", "True")
-      .set("spark.bandits.alwaysShare", "true")
+      .set("spark.bandits.alwaysShare", (!appConfig.disableAlwaysShare).toString)
 
     conf.setIfMissing("spark.master", "local[4]")
     val sc = new SparkContext(conf)
