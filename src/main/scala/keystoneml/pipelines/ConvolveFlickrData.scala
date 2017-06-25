@@ -353,6 +353,7 @@ object ConvolveFlickrData extends Serializable with Logging {
         croppedImgs.mapPartitionsWithIndex { case (index, it) =>
           var filter_index: Int = filters.length / 2
           val rand = new Random(index)
+          val shuffled_filters = new scala.util.Random(index).shuffle(filters.toSeq)
 
           it.zipWithIndex.map {
             case ((id, img), indexInPartition) =>
@@ -364,7 +365,7 @@ object ConvolveFlickrData extends Serializable with Logging {
                 filter_index -= 1
               }
               filter_index = math.max(math.min(filter_index, filters.length - 1), 0)
-              val patches = filters(filter_index)
+              val patches = shuffled_filters(filter_index)
               ConvolutionTask(s"${id._1}_${id._2}", img, patches, partitionId = index, indexInPartition = indexInPartition, globalIndex = globalIndex, autoregressiveFeatures = null)
           }
         }.cache()
@@ -374,6 +375,7 @@ object ConvolveFlickrData extends Serializable with Logging {
         croppedImgs.mapPartitionsWithIndex { case (index, it) =>
           var filter_index: Int = filters.length / 2
           val rand = new Random(conf.numParts * 10)
+          val shuffled_filters = new scala.util.Random(index).shuffle(filters.toSeq)
 
           it.zipWithIndex.map {
             case ((id, img), indexInPartition) =>
@@ -385,7 +387,7 @@ object ConvolveFlickrData extends Serializable with Logging {
                 filter_index -= 1
               }
               filter_index = math.max(math.min(filter_index, filters.length - 1), 0)
-              val patches = filters(filter_index)
+              val patches = shuffled_filters(filter_index)
               ConvolutionTask(s"${id._1}_${id._2}", img, patches, partitionId = index, indexInPartition = indexInPartition, globalIndex = globalIndex, autoregressiveFeatures = null)
           }
         }.cache()
