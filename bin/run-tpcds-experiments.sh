@@ -8,7 +8,7 @@ WORKLOAD_NAME=tpcds-$BANDITS_CLUSTER
 declare -a DISTRIBUTED_SETTINGS=("--communicationRate 500ms" "--disableMulticore")
 declare -a WARMUP_SETTINGS=("--warmup 5")
 CLUSTER_COEFFICIENT_SETTINGS="1.0e10" #"5,3 5,3:5,20:8,30:24,5:25,1"
-DRIFT_COEFFICIENT_SETTINGS="1.0" #"5,3 5,3:5,20:8,30:24,5:25,1"
+DRIFT_COEFFICIENT_SETTINGS="1.0e10" #"5,3 5,3:5,20:8,30:24,5:25,1"
 DRIFT_RATE_SETTINGS="999999s" #"5,3 5,3:5,20:8,30:24,5:25,1"
 #SPARK_SETTINGS="spark.sql.shuffle.partitions:16,spark.sql.codegen.wholeStage:true-spark.sql.shuffle.partitions:32,spark.sql.codegen.wholeStage:true-spark.sql.shuffle.partitions:16,spark.sql.codegen.wholeStage:false-spark.sql.shuffle.partitions:32,spark.sql.codegen.wholeStage:false"
 #SPARK_SETTINGS="spark.io.compression.codec:lz4-spark.io.compression.codec:lzf-spark.io.compression.codec:snappy"
@@ -26,10 +26,10 @@ declare -a QUERIES_SETTINGS=("q5:1-q4:1-q5:1-q11:1-q17:1-q24a:1-q24b:1" "q5:1-q2
 #QUERIES_SETTINGS="q19:1-q42:1-q52:1-q55:1-q63:1-q68:1-q73:1-q98:1-q27:1-q3:1-q43:1-q53:1-q7:1-q89:1-q34:1-q46:1-q59:1-q79:1" # The reporting bucket
 SCALE_FACTORS="200" # 200 100 40 20"
 
-CONSTANT_POLICIES="constant:0 constant:2 constant:3 constant:4" # constant:1 is the contextual, so we don't run it
+CONSTANT_POLICIES="constant:2 constant:3 constant:4" # constant:1 is the contextual, so we don't run it
 #CONSTANT_POLICIES="constant:0 constant:1 constant:2 constant:3" #constant:4 constant:5 constant:6 constant:7 constant:8 constant:9 constant:10 constant:11 constant:12 constant:13 constant:14 constant:15 constant:16 constant:17 constant:18 constant:19"
 ORACLE_POLICIES="" #"oracle:min"
-DYNAMIC_POLICIES="" #"ucb1-normal:0.4" # ucb1-normal:0.4 ucb-gaussian-bayes lin-ucb:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model" #"pseudo-ucb gaussian-thompson-sampling lin-ucb:bias,fft_cost_model,matrix_multiply_cost_model,pos_in_partition,global_index,periodic_5" #epsilon-greedy gaussian-thompson-sampling pseudo-ucb linear-thompson-sampling lin-ucb"
+DYNAMIC_POLICIES="constant:0" #"ucb1-normal:0.4" # ucb1-normal:0.4 ucb-gaussian-bayes lin-ucb:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model" #"pseudo-ucb gaussian-thompson-sampling lin-ucb:bias,fft_cost_model,matrix_multiply_cost_model,pos_in_partition,global_index,periodic_5" #epsilon-greedy gaussian-thompson-sampling pseudo-ucb linear-thompson-sampling lin-ucb"
 
 # Execute the trials
 for SCALE_FACTOR in $SCALE_FACTORS
