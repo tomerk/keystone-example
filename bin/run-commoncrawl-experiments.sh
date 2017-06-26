@@ -1,11 +1,12 @@
 #!/bin/bash
 BANDITS_CLUSTER="${BANDITS_CLUSTER:-bandits-cluster}"
-NUM_PARTS=128 #32
+CLUSTER_SIZE="${CLUSTER_SIZE:-8}"
+NUM_PARTS=$(($CLUSTER_SIZE * 16)) #32
 KEYSTONE_MEM=20g
 WORKLOAD_NAME=commoncrawl-$BANDITS_CLUSTER
 
 #declare -a DISTRIBUTED_SETTINGS=("" "--communicationRate 0s" "--disableMulticore")
-declare -a DISTRIBUTED_SETTINGS=("--communicationRate 500ms")
+declare -a DISTRIBUTED_SETTINGS=("--communicationRate 500ms" "--disableMulticore")
 #declare -a WARMUP_SETTINGS=("" "--warmup 5")
 declare -a WARMUP_SETTINGS=("--warmup 5")
 NONSTATIONARY_SETTINGS="stationary"
@@ -16,7 +17,7 @@ DRIFT_RATE_SETTINGS="999999s" # 10s" #"999999s 30s 10s 5s" #"5,3 5,3:5,20:8,30:2
 REGEXES="0 1 2 3 4 5 6 7 8"
 CONSTANT_POLICIES="constant:0 constant:1 constant:2 constant:3" # "constant:0 constant:1 constant:2 constant:3"
 ORACLE_POLICIES="oracle:min"
-DYNAMIC_POLICIES="gaussian-thompson-sampling:1.0 ucb1-normal:0.5 slinear-thompson-sampling:doc_length:true:1.0" #"ucb1-normal:0.4" # lin-ucb:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model" # ucb1-normal:0.4 ucb-gaussian-bayes lin-ucb:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model" #"pseudo-ucb gaussian-thompson-sampling lin-ucb:bias,fft_cost_model,matrix_multiply_cost_model,pos_in_partition,global_index,periodic_5" #epsilon-greedy gaussian-thompson-sampling pseudo-ucb linear-thompson-sampling lin-ucb"
+DYNAMIC_POLICIES="gaussian-thompson-sampling:1.0" #"ucb1-normal:0.4" # lin-ucb:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model" # ucb1-normal:0.4 ucb-gaussian-bayes lin-ucb:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model" #"pseudo-ucb gaussian-thompson-sampling lin-ucb:bias,fft_cost_model,matrix_multiply_cost_model,pos_in_partition,global_index,periodic_5" #epsilon-greedy gaussian-thompson-sampling pseudo-ucb linear-thompson-sampling lin-ucb"
 
 # Execute the trials
 for REGEX_SETTING in $REGEXES
