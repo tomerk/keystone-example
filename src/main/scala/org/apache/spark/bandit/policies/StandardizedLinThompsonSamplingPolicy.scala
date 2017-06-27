@@ -48,7 +48,7 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
                                                            numFeatures: Int,
                                                            v: Double,
                                                            useCholesky: Boolean,
-                                                           regParam: Double = 1e-3)
+                                                           regParam: Double = 1e-4)
   extends ContextualBanditPolicy(numArms, numFeatures) {
   override protected def estimateRewards(features: DenseVector[Double],
                                          armFeaturesAcc: DenseMatrix[Double],
@@ -80,7 +80,7 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
       val scaledRewards = (armRewardsAcc - (armFeatureSumAcc * armRewardsStats.mean)) :/ (featureStdDev * rewardStdDev)
 
 
-      val regVec = DenseVector.fill(numFeatures)(regParam)
+      val regVec = DenseVector.fill(numFeatures)(regParam * n)
 
       featureCorr += diag(regVec)
 
