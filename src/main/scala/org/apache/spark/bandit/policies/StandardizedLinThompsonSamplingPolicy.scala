@@ -80,7 +80,7 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
       val scaledRewards = (armRewardsAcc - (armFeatureSumAcc * armRewardsStats.mean)) :/ (featureStdDev * rewardStdDev)
 
 
-      val regVec = DenseVector.fill(numFeatures)((regParam + 1.0))// - diag(featureCorr)
+      val regVec = DenseVector.fill(numFeatures)((regParam + 1.0) * n) - diag(featureCorr)
 
       featureCorr = featureCorr + diag(regVec)
 
