@@ -67,28 +67,23 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
       val featureMeans = armFeatureSumAcc / n
       val featureCov = (currArmFeaturesAcc / n) - (featureMeans * featureMeans.t)
 
-      val featureStdDev = sqrt(diag(featureCov)).map(x => if (x <= 1e-10) Double.PositiveInfinity else x)
-      var featureCorr = n * featureCov :/ (featureStdDev * featureStdDev.t)
+      val featureStdDev = sqrt(diag(featureCov)).map(x => if (x <= 1e-10 || x.isNaN) Double.PositiveInfinity else x)
+      val featureCorr = n * featureCov :/ (featureStdDev * featureStdDev.t)
 
-      val rewardStdDev = {
-        val sd = math.sqrt(armRewardsStats.variance)
-        if (sd <= 1e-10) {
-          Double.PositiveInfinity
-        } else {
-          sd
-        }
-      }
+      min.inPlace(max.inPlace(featureCorr, -n), n)
+
+      val rewardStdDev = math.sqrt(armRewardsStats.variance)
       val scaledRewards = (armRewardsAcc - (armFeatureSumAcc * armRewardsStats.mean)) :/ (featureStdDev * rewardStdDev)
 
 
       val regVec = DenseVector.fill(numFeatures)((regParam + 1.0) * n) - diag(featureCorr)
 
 
-      logError("About to print unregged matrix: \n" +featureCorr.toString(1000, 1000))
+      //logError("About to print unregged matrix: \n" +featureCorr.toString(1000, 1000))
 
-      featureCorr = featureCorr + diag(regVec)
+      featureCorr += diag(regVec)
 
-      logError("About to print regged matrix: \n" +featureCorr.toString(1000, 1000))
+      //logError("About to print regged matrix: \n" +featureCorr.toString(1000, 1000))
 
       val coefficientMean = featureCorr \ scaledRewards
       val coefficientDist = InverseCovarianceMultivariateGaussian(
