@@ -82,7 +82,7 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
 
       val regVec = DenseVector.fill(numFeatures)((regParam + 1.0) * n) - diag(featureCorr)
 
-      featureCorr = DenseMatrix.eye(numFeatures) * n //featureCorr + diag(regVec)
+      featureCorr = DenseMatrix.eye[Double](numFeatures) * n //featureCorr + diag(regVec)
 
       val coefficientMean = featureCorr \ scaledRewards
       val coefficientDist = InverseCovarianceMultivariateGaussian(
