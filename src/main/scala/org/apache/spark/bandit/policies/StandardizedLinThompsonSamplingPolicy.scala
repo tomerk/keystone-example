@@ -71,7 +71,7 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
 
       val rewardStdDev = {
         val sd = math.sqrt(armRewardsStats.variance)
-        if (sd <= 1e-9) {
+        if (sd <= MLToleranceUtilsCopyCopy.EPSILON) {
           1.0
         } else {
           sd
@@ -82,7 +82,7 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
 
       val regVec = DenseVector.fill(numFeatures)((regParam + 1.0) * n) - diag(featureCorr)
 
-      featureCorr = featureCorr + diag(regVec)
+      featureCorr = DenseMatrix.eye(numFeatures) * n //featureCorr + diag(regVec)
 
       val coefficientMean = featureCorr \ scaledRewards
       val coefficientDist = InverseCovarianceMultivariateGaussian(
