@@ -84,11 +84,11 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
       val regVec = DenseVector.fill(numFeatures)((regParam + 1.0) * n) - diag(featureCorr)
 
 
-      logError("About to print unregged matrix: \n" +featureCorr.toString)
+      logError("About to print unregged matrix: \n" +featureCorr.toString(1000, 1000))
 
       featureCorr = featureCorr + diag(regVec)
 
-      logError("About to print regged matrix: \n" +featureCorr.toString)
+      logError("About to print regged matrix: \n" +featureCorr.toString(1000, 1000))
 
       val coefficientMean = featureCorr \ scaledRewards
       val coefficientDist = InverseCovarianceMultivariateGaussian(
