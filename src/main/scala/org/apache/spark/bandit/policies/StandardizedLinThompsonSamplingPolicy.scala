@@ -66,13 +66,13 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
       val featureMeans = armFeatureSumAcc / n
       val featureCov = (currArmFeaturesAcc / n) - (featureMeans * featureMeans.t)
 
-      val featureStdDev = sqrt(diag(featureCov)).map(x => if (x <= MLToleranceUtilsCopyCopy.EPSILON) 1.0 else x)
+      val featureStdDev = sqrt(diag(featureCov)).map(x => if (x <= 1e-10) Double.PositiveInfinity else x)
       var featureCorr = n * featureCov :/ (featureStdDev * featureStdDev.t)
 
       val rewardStdDev = {
         val sd = math.sqrt(armRewardsStats.variance)
-        if (sd <= MLToleranceUtilsCopyCopy.EPSILON) {
-          1.0
+        if (sd <= 1e-10) {
+          Double.PositiveInfinity
         } else {
           sd
         }
@@ -80,9 +80,9 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
       val scaledRewards = (armRewardsAcc - (armFeatureSumAcc * armRewardsStats.mean)) :/ (featureStdDev * rewardStdDev)
 
 
-      val regVec = DenseVector.fill(numFeatures)((regParam + 1.0) * n) - diag(featureCorr)
+      val regVec = DenseVector.fill(numFeatures)((regParam + 1.0) * n)// - diag(featureCorr)
 
-      featureCorr = DenseMatrix.eye[Double](numFeatures) * n //featureCorr + diag(regVec)
+      featureCorr = featureCorr + diag(regVec)
 
       val coefficientMean = featureCorr \ scaledRewards
       val coefficientDist = InverseCovarianceMultivariateGaussian(
