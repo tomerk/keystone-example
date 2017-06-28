@@ -67,7 +67,7 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
       val featureCov = (currArmFeaturesAcc / n) - (featureMeans * featureMeans.t)
 
       val featureStdDev = sqrt(diag(featureCov)).map(x => if (x <= MLToleranceUtilsCopyCopy.EPSILON) 1.0 else x)
-      val featureCorr = n * featureCov :/ (featureStdDev * featureStdDev.t)
+      var featureCorr = n * featureCov :/ (featureStdDev * featureStdDev.t)
 
       val rewardStdDev = {
         val sd = math.sqrt(armRewardsStats.variance)
@@ -82,7 +82,7 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
 
       val regVec = DenseVector.fill(numFeatures)((regParam + 1.0) * n) - diag(featureCorr)
 
-      featureCorr += diag(regVec)
+      featureCorr = featureCorr + diag(regVec)
 
       val coefficientMean = featureCorr \ scaledRewards
       val coefficientDist = InverseCovarianceMultivariateGaussian(
