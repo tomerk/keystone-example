@@ -17,9 +17,10 @@
 
 package org.apache.spark.bandit.policies
 
-import breeze.linalg.{DenseMatrix, DenseVector, cholesky, diag, eigSym, inv, max, sum, min}
+import breeze.linalg.{DenseMatrix, DenseVector, cholesky, diag, eigSym, inv, max, min, sum}
 import breeze.numerics.sqrt
 import breeze.stats.distributions._
+import keystoneml.pipelines.Logging
 import org.apache.spark.bandit.WeightedStats
 import org.apache.spark.util.StatCounter
 
@@ -82,7 +83,12 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
 
       val regVec = DenseVector.fill(numFeatures)((regParam + 1.0) * n) - diag(featureCorr)
 
+
+      logError("About to print unregged matrix: \n" +featureCorr.toString)
+
       featureCorr = featureCorr + diag(regVec)
+
+      logError("About to print regged matrix: \n" +featureCorr.toString)
 
       val coefficientMean = featureCorr \ scaledRewards
       val coefficientDist = InverseCovarianceMultivariateGaussian(
