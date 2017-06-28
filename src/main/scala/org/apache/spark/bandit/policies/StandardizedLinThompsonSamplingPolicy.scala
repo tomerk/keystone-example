@@ -17,7 +17,7 @@
 
 package org.apache.spark.bandit.policies
 
-import breeze.linalg.{DenseMatrix, DenseVector, cholesky, diag, eigSym, inv, max, sum}
+import breeze.linalg.{DenseMatrix, DenseVector, cholesky, diag, eigSym, inv, max, sum, min}
 import breeze.numerics.sqrt
 import breeze.stats.distributions._
 import org.apache.spark.bandit.WeightedStats
@@ -66,7 +66,7 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
       val featureMeans = armFeatureSumAcc / n
       val featureCov = (currArmFeaturesAcc / n) - (featureMeans * featureMeans.t)
 
-      val featureStdDev = sqrt(diag(featureCov)).map(x => if (x <= 1e-9) 1.0 else x)
+      val featureStdDev = sqrt(diag(featureCov)).map(x => if (x <= MLToleranceUtilsCopyCopy.EPSILON) 1.0 else x)
       val featureCorr = n * featureCov :/ (featureStdDev * featureStdDev.t)
 
       val rewardStdDev = {
@@ -80,7 +80,7 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
       val scaledRewards = (armRewardsAcc - (armFeatureSumAcc * armRewardsStats.mean)) :/ (featureStdDev * rewardStdDev)
 
 
-      val regVec = DenseVector.fill(numFeatures)(regParam * n)
+      val regVec = DenseVector.fill(numFeatures)((regParam + 1.0) * n) - diag(featureCorr)
 
       featureCorr += diag(regVec)
 
@@ -99,3 +99,15 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
     }
   }
 }
+
+object MLToleranceUtilsCopyCopy extends Serializable {
+
+  @transient lazy val EPSILON = {
+    var eps = 1.0
+    while ((1.0 + (eps / 2.0)) != 1.0) {
+      eps /= 2.0
+    }
+    eps
+  }
+}
+
