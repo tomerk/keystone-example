@@ -48,7 +48,7 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
                                                            numFeatures: Int,
                                                            v: Double,
                                                            useCholesky: Boolean,
-                                                           regParam: Double = 1e-4)
+                                                           regParam: Double = 1)
   extends ContextualBanditPolicy(numArms, numFeatures) {
   override protected def estimateRewards(features: DenseVector[Double],
                                          armFeaturesAcc: DenseMatrix[Double],
