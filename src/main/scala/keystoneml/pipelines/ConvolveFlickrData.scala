@@ -513,7 +513,7 @@ object ConvolveFlickrData extends Serializable with Logging {
       patches: String = "15,2",
       policy: String = "",
       nonstationarity: String = "stationary",
-      communicationRate: String = "5s",
+      communicationRate: String = "500ms",
       clusterCoefficient: String = "1.0",
       driftDetectionRate: String = "5s",
       driftCoefficient: String = "1.0",
