@@ -14,11 +14,11 @@ CLUSTER_COEFFICIENT_SETTINGS="1.0e10" #"0.0 1.0e10 2.0 1.0 0.5 0.25" #"1.0e10 1.
 DRIFT_COEFFICIENT_SETTINGS="-1.0e10" #"5,3 5,3:5,20:8,30:24,5:25,1"
 #DRIFT_RATE_SETTINGS="15s" # 10s" #"999999s 30s 10s 5s" #"5,3 5,3:5,20:8,30:24,5:25,1"
 
-PATCH_SETTINGS="5,3:5,20:8,30:24,5:25,1" #"5,3:5,20:8,30:24,5:25,1" #"5,3 5,25 25,5" #"5,3 5,3:5,20:8,30:24,5:25,1"
+PATCH_SETTINGS="5,3:5,20:8,30:20,5:30,8:25,5:5,25:3,5" #"5,3:5,20:8,30:24,5:25,1" #"5,3 5,25 25,5" #"5,3 5,3:5,20:8,30:24,5:25,1"
 CROP_SETTINGS="0,0,0.5,0.5:0,0.5,0.5,1.0:0.5,0,1,0.5:0.5,0.5,1,1"
 CONSTANT_POLICIES="constant:0 constant:1 constant:2"
 ORACLE_POLICIES="oracle:min"
-DYNAMIC_POLICIES="gaussian-thompson-sampling:1.0 slinear-thompson-sampling:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model:true:1.0 slinear-thompson-sampling:image_rows,image_cols,filter_rows,filter_cols,image_size:true:1.0 slinear-thompson-sampling:image_rows,image_cols,filter_rows,image_size:true:1.0 slinear-thompson-sampling:image_rows,image_cols,filter_cols,image_size:true:1.0" # linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model:true:1.0 linear-thompson-sampling:bias:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,filter_cols,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_cols,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,image_size:true:1.0"
+declare -a DYNAMIC_POLICIES=("gaussian-thompson-sampling:1.0" "slinear-thompson-sampling:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model:true:1.0" "slinear-thompson-sampling:image_rows,image_cols,filter_rows,filter_cols,image_size:true:1.0" "slinear-thompson-sampling:image_rows,image_cols,filter_rows,image_size:true:1.0" "slinear-thompson-sampling:image_rows,image_cols,filter_cols,image_size:true:1.0") # linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model:true:1.0 linear-thompson-sampling:bias:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,filter_cols,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_cols,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,image_size:true:1.0"
 #DYNAMIC_POLICIES="linear-thompson-sampling:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model:true:1.0 linear-thompson-sampling:bias:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,filter_cols,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_rows,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,filter_cols,image_size:true:1.0 linear-thompson-sampling:bias,image_rows,image_cols,image_size:true:1.0 gaussian-thompson-sampling:1.0 gaussian-thompson-sampling:2.0 gaussian-thompson-sampling:0.5"
 #"lin-ucb:bias,image_rows,image_cols,filter_rows,filter_cols,image_size:4 lin-ucb:bias,image_rows,image_cols,filter_rows,image_size:4 lin-ucb:bias,image_rows,image_cols,filter_cols,image_size:4 lin-ucb:bias,image_rows,image_cols,image_size:4 lin-ucb:bias:4 ucb1-normal:0.5" # ucb1-normal:0.5" #"ucb1-normal:0.4" # lin-ucb:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model" # ucb1-normal:0.4 ucb-gaussian-bayes lin-ucb:image_rows,image_cols,filter_rows,filter_cols,image_size,fft_cost_model,matrix_multiply_cost_model" #"pseudo-ucb gaussian-thompson-sampling lin-ucb:bias,fft_cost_model,matrix_multiply_cost_model,pos_in_partition,global_index,periodic_5" #epsilon-greedy gaussian-thompson-sampling pseudo-ucb linear-thompson-sampling lin-ucb"
 
@@ -88,9 +88,9 @@ do
                     do
                         for WARMUP_INDEX in "${!WARMUP_SETTINGS[@]}"
                         do
-                            for POLICY in $DYNAMIC_POLICIES
+                            for POLICY_SETTING_INDEX in "${!DYNAMIC_POLICIES[@]}"
                             do
-                                OUT_CSV="$WORKLOAD_NAME-$POLICY-$PATCH_SETTING-$CROP_SETTING-WARMUP_$WARMUP_INDEX-DISTRIBUTED_$DISTRIBUTED_SETTING_INDEX-$NONSTATIONARY_SETTING-$CLUSTER_COEFFICIENT_SETTING-drift-$DRIFT_RATE_SETTING-$DRIFT_COEFFICIENT_SETTING.csv"
+                                OUT_CSV="$WORKLOAD_NAME-$POLICY_SETTING_INDEX-$CROP_SETTING-$WARMUP_INDEX-$DISTRIBUTED_SETTING_INDEX-$NONSTATIONARY_SETTING-$CLUSTER_COEFFICIENT_SETTING.csv"
                                 echo "Generating $OUT_CSV"
                                 flintrock run-command --master-only $BANDITS_CLUSTER "
                 cd keystone-example
@@ -100,7 +100,7 @@ do
                   --patchesLocation patches \
                   --outputLocation $OUT_CSV \
                   --labelLocation flickr_file_shuffled_indexmap.out \
-                  --policy $POLICY \
+                  --policy ${DYNAMIC_POLICIES[$POLICY_SETTING_INDEX]} \
                   --patches $PATCH_SETTING \
                   --crops $CROP_SETTING \
                   --numParts $NUM_PARTS \
