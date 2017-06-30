@@ -487,18 +487,18 @@ object ConvolveFlickrData extends Serializable with Logging {
             val action = bandit.applyAndOutputReward(task)._2
             val endTime = System.nanoTime()
 
-            s"$pid,$index,${task.id},${task.image.metadata.xDim},${task.image.metadata.yDim},${task.filters.rows},${task.filters.cols},$startTime,$endTime,${action.arm},${action.reward},${endTime-pStartTime},${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${'"' + conf.crops + '"'},${'"' + conf.patches + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},${conf.disableMulticore},${conf.numParts},0"
+            s"$pid,$index,${task.id},${task.image.metadata.xDim},${task.image.metadata.yDim},${task.filters.rows},${task.filters.cols},$startTime,$endTime,${action.arm},${action.reward},${endTime-pStartTime},${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${'"' + conf.crops + '"'},${'"' + conf.patches + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},${conf.disableMulticore},${conf.numParts},0,${'"' + conf.tag + '"'}"
         }
     }.collect()
 
     val globalEnd = System.currentTimeMillis()
 
     val writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(conf.outputLocation)))
-    writer.write("partition_id,pos_in_partition,canonical_tuple_id,img_x_dim,img_y_dim,filter_rows,filter_cols,system_nano_start_time,system_nano_end_time,arm,reward,partition_running_nanos,policy,nonstationarity,crops,patches,driftRate,driftCoefficient,clusterCoefficient,communicationRate,disableMulticore,numParts,globalTime\n")
+    writer.write("partition_id,pos_in_partition,canonical_tuple_id,img_x_dim,img_y_dim,filter_rows,filter_cols,system_nano_start_time,system_nano_end_time,arm,reward,partition_running_nanos,policy,nonstationarity,crops,patches,driftRate,driftCoefficient,clusterCoefficient,communicationRate,disableMulticore,numParts,globalTime,tag\n")
     for (x <- banditResults) {
       writer.write(x + "\n")
     }
-    writer.write(s"-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${'"' + conf.crops + '"'},${'"' + conf.patches + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},${conf.disableMulticore},${conf.numParts},${globalEnd - globalStart}\n")
+    writer.write(s"-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${'"' + conf.crops + '"'},${'"' + conf.patches + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},${conf.disableMulticore},${conf.numParts},${globalEnd - globalStart},${'"' + conf.tag + '"'}\n")
     writer.close()
 
     Identity[Image]() andThen Identity()
@@ -512,6 +512,7 @@ object ConvolveFlickrData extends Serializable with Logging {
       crops: String = "0,0,1,1:0,0,0.5,0.5:0,0.5,0.5,1.0:0.5,0,1,0.5:0.5,0.5,1,1",
       patches: String = "15,2",
       policy: String = "",
+      tag: String = "",
       nonstationarity: String = "stationary",
       communicationRate: String = "500ms",
       clusterCoefficient: String = "1.0",
@@ -537,6 +538,7 @@ object ConvolveFlickrData extends Serializable with Logging {
     opt[String]("clusterCoefficient") action { (x,c) => c.copy(clusterCoefficient=x) }
     opt[String]("driftDetectionRate") action { (x,c) => c.copy(driftDetectionRate=x) }
     opt[String]("driftCoefficient") action { (x,c) => c.copy(driftCoefficient=x) }
+    opt[String]("tag") action { (x,c) => c.copy(tag=x) }
     opt[Unit]("disableMulticore") action { (x,c) => c.copy(disableMulticore=true) }
     opt[Unit]("disableAlwaysShare") action { (x,c) => c.copy(disableAlwaysShare=true) }
     opt[Int]("warmup") action { (x,c) => c.copy(warmup=Some(x)) }

@@ -6,7 +6,7 @@ KEYSTONE_MEM=20g
 WORKLOAD_NAME="flickr-$BANDITS_CLUSTER"
 
 #declare -a DISTRIBUTED_SETTINGS=("" "--communicationRate 0s" "--disableMulticore")
-declare -a DISTRIBUTED_SETTINGS=("--communicationRate 500ms --driftDetectionRate 15s --disableAlwaysShare")
+declare -a DISTRIBUTED_SETTINGS=("--communicationRate 500ms --driftDetectionRate 15s --disableAlwaysShare --tag shareSmart")
 #declare -a WARMUP_SETTINGS=("" "--warmup 5")
 declare -a WARMUP_SETTINGS=("--warmup 5")
 NONSTATIONARY_SETTINGS="global_drift,0.01 stationary partitions_vary local_drift,0.01, global_drift,0.01" # random_walk,0.05" #"stationary sort sort_partitions random_walk,0.05 global_random_walk,0.05" #"stationary sort_partitions sort random_walk,0.05 global_random_walk,0.05" #("--nonstationarity sort_partitions" "--nonstationarity global_random_walk,0.05") #"--nonstationarity sort" "--nonstationarity random_walk,0.05" "--nonstationarity periodic") #NONSTATIONARY_SETTINGS=("" "--nonstationarity sort" "--nonstationarity periodic" "--nonstationarity sort_partition" "--nonstationarity random_walk,0.05" )
