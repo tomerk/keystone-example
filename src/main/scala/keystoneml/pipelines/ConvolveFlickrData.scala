@@ -348,6 +348,56 @@ object ConvolveFlickrData extends Serializable with Logging {
           }
         }.cache()
 
+      case Array("global_drift", probability_string) =>
+        val probability = probability_string.toDouble
+        croppedImgs.mapPartitionsWithIndex { case (index, it) =>
+          val rand = new Random(9232l) // What makes this diff. from drift within partitions is the
+          // fixed seed across all partitions
+          var filterIndex = rand.nextInt(filters.length)
+
+          it.zipWithIndex.map {
+            case ((id, img), indexInPartition) =>
+              val globalIndex: Int = (index * approxPartitionSize + indexInPartition).toInt
+              val draw = rand.nextFloat()
+              if (draw < probability) {
+                filterIndex = rand.nextInt(filters.length)
+              }
+              val patches = filters(filterIndex)
+              ConvolutionTask(s"${id._1}_${id._2}", img, patches, partitionId = index, indexInPartition = indexInPartition, globalIndex = globalIndex, autoregressiveFeatures = null)
+          }
+        }.cache()
+
+      case Array("local_drift", probability_string) =>
+        val probability = probability_string.toDouble
+        croppedImgs.mapPartitionsWithIndex { case (index, it) =>
+          val rand = new Random(index)
+          var filterIndex = rand.nextInt(filters.length)
+
+          it.zipWithIndex.map {
+            case ((id, img), indexInPartition) =>
+              val globalIndex: Int = (index * approxPartitionSize + indexInPartition).toInt
+              val draw = rand.nextFloat()
+              if (draw < probability) {
+                filterIndex = rand.nextInt(filters.length)
+              }
+              val patches = filters(filterIndex)
+              ConvolutionTask(s"${id._1}_${id._2}", img, patches, partitionId = index, indexInPartition = indexInPartition, globalIndex = globalIndex, autoregressiveFeatures = null)
+          }
+        }.cache()
+
+      case Array("partitions_vary")  =>
+        croppedImgs.mapPartitionsWithIndex { case (index, it) =>
+          val rand = new Random(index)
+          val filterIndex = rand.nextInt(filters.length)
+          val patches = filters(filterIndex)
+
+          it.zipWithIndex.map {
+            case ((id, img), indexInPartition) =>
+              val globalIndex: Int = (index * approxPartitionSize + indexInPartition).toInt
+              ConvolutionTask(s"${id._1}_${id._2}", img, patches, partitionId = index, indexInPartition = indexInPartition, globalIndex = globalIndex, autoregressiveFeatures = null)
+          }
+        }.cache()
+
       case Array("random_walk", probability_string) =>
         val probability = probability_string.toDouble
         croppedImgs.mapPartitionsWithIndex { case (index, it) =>
@@ -375,6 +425,7 @@ object ConvolveFlickrData extends Serializable with Logging {
         croppedImgs.mapPartitionsWithIndex { case (index, it) =>
           var filter_index: Int = filters.length / 2
           val rand = new Random(conf.numParts * 10)
+          // Fixme: TODO: Pretty sure setting index as the seed here is a bug
           val shuffled_filters = new scala.util.Random(index).shuffle(filters.toSeq)
 
           it.zipWithIndex.map {
