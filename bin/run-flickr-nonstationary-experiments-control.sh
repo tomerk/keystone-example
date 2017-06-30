@@ -3,7 +3,7 @@ BANDITS_CLUSTER="${BANDITS_CLUSTER:-bandits-cluster}"
 CLUSTER_SIZE="${CLUSTER_SIZE:-8}"
 NUM_PARTS=$(($CLUSTER_SIZE * 4)) #32
 KEYSTONE_MEM=20g
-WORKLOAD_NAME="flickr-$BANDITS_CLUSTER"
+WORKLOAD_NAME="flickr-$BANDITS_CLUSTER-control"
 
 #declare -a DISTRIBUTED_SETTINGS=("" "--communicationRate 0s" "--disableMulticore")
 declare -a DISTRIBUTED_SETTINGS=("--communicationRate 500ms --driftDetectionRate 9999999999s --tag shareAll" "--disableMulticore --driftDetectionRate 15s --tag shareNone" "--disableMulticore --driftDetectionRate 9999999999s --tag shareOldOnly" "--driftDetectionRate 15s --tag shareNonlocalOnly")
