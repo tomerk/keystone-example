@@ -387,9 +387,11 @@ object ConvolveFlickrData extends Serializable with Logging {
 
       case Array("partitions_vary")  =>
         croppedImgs.mapPartitionsWithIndex { case (index, it) =>
-          val rand = new Random(index)
-          val filterIndex = rand.nextInt(filters.length)
-          val patches = filters(filterIndex)
+          // Watch out when seeds are too similar!!!
+          //val rand = new Random(index)
+          //val filterIndex = rand.nextInt(filters.length)
+
+          val patches = filters(index % filters.length)
 
           it.zipWithIndex.map {
             case ((id, img), indexInPartition) =>
