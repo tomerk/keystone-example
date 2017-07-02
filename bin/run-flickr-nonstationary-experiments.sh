@@ -9,7 +9,7 @@ WORKLOAD_NAME="flickr-$BANDITS_CLUSTER"
 declare -a DISTRIBUTED_SETTINGS=("--communicationRate 500ms --driftDetectionRate 15s --disableAlwaysShare --tag shareSmart")
 #declare -a WARMUP_SETTINGS=("" "--warmup 5")
 declare -a WARMUP_SETTINGS=("--warmup 5")
-NONSTATIONARY_SETTINGS="global_drift,0.01 stationary partitions_vary local_drift,0.01, global_drift,0.01" # random_walk,0.05" #"stationary sort sort_partitions random_walk,0.05 global_random_walk,0.05" #"stationary sort_partitions sort random_walk,0.05 global_random_walk,0.05" #("--nonstationarity sort_partitions" "--nonstationarity global_random_walk,0.05") #"--nonstationarity sort" "--nonstationarity random_walk,0.05" "--nonstationarity periodic") #NONSTATIONARY_SETTINGS=("" "--nonstationarity sort" "--nonstationarity periodic" "--nonstationarity sort_partition" "--nonstationarity random_walk,0.05" )
+NONSTATIONARY_SETTINGS="global_drift,0.01 stationary partitions_vary local_drift,0.01" # random_walk,0.05" #"stationary sort sort_partitions random_walk,0.05 global_random_walk,0.05" #"stationary sort_partitions sort random_walk,0.05 global_random_walk,0.05" #("--nonstationarity sort_partitions" "--nonstationarity global_random_walk,0.05") #"--nonstationarity sort" "--nonstationarity random_walk,0.05" "--nonstationarity periodic") #NONSTATIONARY_SETTINGS=("" "--nonstationarity sort" "--nonstationarity periodic" "--nonstationarity sort_partition" "--nonstationarity random_walk,0.05" )
 CLUSTER_COEFFICIENT_SETTINGS="1.0 0.25 2.0 0.5" #"0.0 1.0e10 2.0 1.0 0.5 0.25" #"1.0e10 1.0 0.0" #"5,3 5,3:5,20:8,30:24,5:25,1"
 
 PATCH_SETTINGS="5,3:5,20:8,30:20,5:30,8:25,5:5,25:3,5" #"5,3:5,20:8,30:24,5:25,1" #"5,3 5,25 25,5" #"5,3 5,3:5,20:8,30:24,5:25,1"

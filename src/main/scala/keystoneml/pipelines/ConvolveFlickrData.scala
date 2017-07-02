@@ -323,6 +323,17 @@ object ConvolveFlickrData extends Serializable with Logging {
           }
         }.cache()
 
+      case Array("sort_partitions") =>
+        croppedImgs.mapPartitionsWithIndex { case (index, it) =>
+          it.zipWithIndex.map {
+            case ((id, img), indexInPartition) =>
+              val globalIndex: Int = (index * approxPartitionSize + indexInPartition).toInt
+              val filterPos = math.min(math.round(filters.length * indexInPartition / approxPartitionSize).toInt, filters.length - 1)
+              val patches = filters(filterPos)
+              ConvolutionTask(s"${id._1}_${id._2}", img, patches, partitionId = index, indexInPartition = indexInPartition, globalIndex = globalIndex, autoregressiveFeatures = null)
+          }
+        }.cache()
+
       case Array("periodic") =>
         croppedImgs.mapPartitionsWithIndex { case (index, it) =>
           it.zipWithIndex.map {
@@ -351,7 +362,7 @@ object ConvolveFlickrData extends Serializable with Logging {
       case Array("global_drift", probability_string) =>
         val probability = probability_string.toDouble
         croppedImgs.mapPartitionsWithIndex { case (index, it) =>
-          val rand = new Random(9232l) // What makes this diff. from drift within partitions is the
+          val rand = new Random(20) // What makes this diff. from drift within partitions is the
           // fixed seed across all partitions
           var filterIndex = rand.nextInt(filters.length)
 
