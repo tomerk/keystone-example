@@ -575,7 +575,7 @@ object ConvolveFlickrData extends Serializable with Logging {
       appConfig.driftDetectionRate).set(
       "spark.bandits.driftCoefficient",
       appConfig.driftCoefficient)
-    .set("spark.bandits.contextCombinedWeights", "True")
+    .set("spark.bandits.contextCombinedWeights", "False")
       .set("spark.bandits.alwaysShare", (!appConfig.disableAlwaysShare).toString)
 
     conf.setIfMissing("spark.master", "local[4]")
