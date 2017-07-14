@@ -276,10 +276,10 @@ object ConvolveFlickrData extends Serializable with Logging {
         case (Crop(startX, startY, endX, endY), cropIndex) =>
           ((id.toInt, cropIndex), ImageUtils.crop(
             img,
-            (img.metadata.xDim * startX).toInt,
-            (img.metadata.yDim * startY).toInt,
-            (img.metadata.xDim * endX).toInt,
-            (img.metadata.yDim * endY).toInt
+            0,//(img.metadata.xDim * startX).toInt,
+            0,//(img.metadata.yDim * startY).toInt,
+            100,//(img.metadata.xDim * endX).toInt,
+            100//(img.metadata.yDim * endY).toInt
           ))
     }}.repartitionAndSortWithinPartitions(new Partitioner {
       override def numPartitions = conf.numParts
