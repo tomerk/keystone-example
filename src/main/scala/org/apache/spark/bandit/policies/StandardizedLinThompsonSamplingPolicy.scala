@@ -101,6 +101,40 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
   }
 }
 
+class BaseLinThompsonSamplingPolicy(numArms: Int,
+                                               numFeatures: Int,
+                                               v: Double,
+                                               useCholesky: Boolean,
+                                               usingBias: Boolean,
+                                               regParam: Double = 1e-3)
+  extends ContextualBanditPolicy(numArms, numFeatures) {
+  override protected def estimateRewards(features: DenseVector[Double],
+                                         armFeaturesAcc: DenseMatrix[Double],
+                                         armFeatureSumAcc: DenseVector[Double],
+                                         armRewardsAcc: DenseVector[Double],
+                                         armRewardsStats: WeightedStats): Double = {
+    // TODO: Should be able to optimize code by only computing coefficientMean after
+    // updates. Would require an update to ContextualBanditPolicy to apply optimization
+    // to all contextual bandits.
+    if (armRewardsStats.totalWeights >= 2) {
+
+      val currArmFeaturesAcc = armFeaturesAcc
+
+      val coefficientMean = currArmFeaturesAcc \ armRewardsAcc
+      val coefficientDist = InverseCovarianceMultivariateGaussian(
+        coefficientMean,
+        // We divide because this is the inverse covariance
+        currArmFeaturesAcc / (v * numFeatures * armRewardsStats.variance),
+        useCholesky = useCholesky)
+      val coefficientSample = coefficientDist.draw()
+
+      coefficientSample.t * features
+    } else {
+      Double.PositiveInfinity
+    }
+  }
+}
+
 object MLToleranceUtilsCopyCopy extends Serializable {
 
   @transient lazy val EPSILON = {
