@@ -50,7 +50,7 @@ object ConvolveFixedSizeFlickrData extends Serializable with Logging {
       case "image_size" => ImageSize()
       case "filter_rows" => FilterRows()
       case "filter_cols" => FilterCols()
-      case "fft_cost_model" => FFTFeature()
+      //case "fft_cost_model" => FFTFeature()
       case "matrix_multiply_cost_model" => MatrixMultiplyFeature()
       case "global_index" => GlobalIndex()
       case "pos_in_partition" => PosInPartition()

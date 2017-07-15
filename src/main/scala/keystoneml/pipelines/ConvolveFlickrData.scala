@@ -80,10 +80,21 @@ case class FilterRows() extends Feature {
 case class FilterCols() extends Feature {
   override def get(task: ConvolutionTask): Double = task.filters.cols
 }
-case class FFTFeature() extends Feature {
+case class FilterSize() extends Feature {
+  override def get(task: ConvolutionTask): Double = task.filters.rows * task.filters.cols
+}
+case class FFTImageFeature() extends Feature {
   override def get(task: ConvolutionTask): Double = {
     task.image.metadata.xDim * task.image.metadata.yDim *
       (math.log(task.image.metadata.xDim) + math.log(task.image.metadata.yDim))
+  }
+}
+case class FFTFilterFeature() extends Feature {
+  override def get(task: ConvolutionTask): Double = {
+    task.filters.rows * task.image.metadata.xDim * task.image.metadata.yDim *
+      (math.log(task.image.metadata.xDim) + math.log(task.image.metadata.yDim))
+    /*math.sqrt(task.filters.cols) * task.filters.rows
+      (math.log(task.filters.cols))*/
   }
 }
 
@@ -113,7 +124,9 @@ object ConvolveFlickrData extends Serializable with Logging {
       case "image_size" => ImageSize()
       case "filter_rows" => FilterRows()
       case "filter_cols" => FilterCols()
-      case "fft_cost_model" => FFTFeature()
+      case "filter_size" => FilterSize()
+      case "fft_i" => FFTImageFeature()
+      case "fft_f" => FFTFilterFeature()
       case "matrix_multiply_cost_model" => MatrixMultiplyFeature()
       case "global_index" => GlobalIndex()
       case "pos_in_partition" => PosInPartition()
@@ -252,6 +265,9 @@ object ConvolveFlickrData extends Serializable with Logging {
         case Array("slinear-thompson-sampling", featureString, useCholesky, varMultiplier) =>
           val (features, numFeatures) = makeFeatures(featureString)
           sc.contextualBandit(convolutionOps, features, new StandardizedLinThompsonSamplingPolicy(convolutionOps.length, numFeatures, varMultiplier.toDouble, useCholesky = useCholesky.toBoolean))
+        case Array("selinear-thompson-sampling", featureString, useCholesky, varMultiplier) =>
+          val (features, numFeatures) = makeFeatures(featureString)
+          sc.contextualBandit(convolutionOps, features, new StandardizedUseErrorLinThompsonSamplingPolicy(convolutionOps.length, numFeatures, varMultiplier.toDouble, useCholesky = useCholesky.toBoolean))
 
         case Array("lin-ucb", featureString) =>
           val (features, numFeatures) = makeFeatures(featureString)
@@ -276,10 +292,10 @@ object ConvolveFlickrData extends Serializable with Logging {
         case (Crop(startX, startY, endX, endY), cropIndex) =>
           ((id.toInt, cropIndex), ImageUtils.crop(
             img,
-            0,//(img.metadata.xDim * startX).toInt,
-            0,//(img.metadata.yDim * startY).toInt,
-            100,//(img.metadata.xDim * endX).toInt,
-            100//(img.metadata.yDim * endY).toInt
+            (img.metadata.xDim * startX).toInt,
+            (img.metadata.yDim * startY).toInt,
+            (img.metadata.xDim * endX).toInt,
+            (img.metadata.yDim * endY).toInt
           ))
     }}.repartitionAndSortWithinPartitions(new Partitioner {
       override def numPartitions = conf.numParts
