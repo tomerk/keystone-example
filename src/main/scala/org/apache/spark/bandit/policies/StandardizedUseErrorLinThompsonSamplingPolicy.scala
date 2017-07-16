@@ -87,12 +87,12 @@ class StandardizedUseErrorLinThompsonSamplingPolicy(numArms: Int,
 
       val coefficientMean = featureCorr \ scaledRewards
 
-      val yty = armRewardsStats.normL2 * armRewardsStats.normL2
+      val yty = n //armRewardsStats.normL2 * armRewardsStats.normL2
       val modelSqError = {
-        val betaXtY = coefficientMean.t * armRewardsAcc
-        val betaXtXbeta = coefficientMean.t * armFeaturesAcc * coefficientMean
+        val betaXtY = coefficientMean.t * scaledRewards
+        val betaXtXbeta = coefficientMean.t * featureCorr * coefficientMean
 
-        (yty - 2 * betaXtY + betaXtXbeta)
+        (yty - 2 * betaXtY + betaXtXbeta) / n
       }
 
       val coefficientDist = InverseCovarianceMultivariateGaussian(
