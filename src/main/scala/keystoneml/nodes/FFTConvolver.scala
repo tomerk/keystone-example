@@ -111,7 +111,7 @@ case class FFTConvolver(filters: DenseMatrix[Double], filterSize: Int, numChanne
     val start = System.currentTimeMillis
     val fftXs = (0 until chans).map(c => fft(getChannelMatrix(x, c)))
     //val fftMs = (0 until m.length).map(f => (0 until chans).map(c => fft(padMat(getChannelMatrix(m(f), c), x.metadata.xDim, x.metadata.yDim)))).toArray
-    val fftMs = (0 until m.length).map(f => (0 until chans).map(c => (complexPadMat(fft(getChannelMatrix(m(f), c)), x.metadata.xDim, x.metadata.yDim)))).toArray
+    val fftMs = (0 until m.length).map(f => (0 until chans).map(c => fft(padMat(getChannelMatrix(m(f), c), x.metadata.xDim, x.metadata.yDim)))).toArray
 
     //logInfo(s"Length of Xs: ${fftXs.length}, Length of each m: ${fftMs.first.length}, Total ms: ${fftMs.length}")
     var c = 0
