@@ -36,14 +36,33 @@ object RegexFactoryContainer extends Serializable {
   )
 
   //  http://regexr.com
-  val regexes: Seq[String] = Seq("[(http(s)?):\\/\\/(www\\.)?a-zA-Z0-9@:%._\\+~#=]{2,255}\\.[a-z]{2,6}",
+  val regexes: Seq[String] = Seq(
+
+    // I think this is url matching, but it might only include the first part?
+    "[(http(s)?):\\/\\/(www\\.)?a-zA-Z0-9@:%._\\+~#=]{2,255}\\.[a-z]{2,6}",
+
+    // Match trigrams:
     "([A-Za-z]+[ \\t\\n\\r]+[A-Za-z]+[ \\t\\n\\r]+[A-Za-z]+)",
+
+    // Match full a href link tags w/ white space:
     "<(a)[ \\t\\n\\r]([^>]+[ \\t\\n\\r])?href[ \\t\\n\\r]*=[ \\t\\n\\r]*(\"[^\"]*\"|'[^']*')[^>]*>",
+
+    // Phone number matching from http://regexr.com/38pvb  (but replacing \d with [0-9] because some libraries don't support character classes)
     "(\\+?([0-9]{1,3}))?([-. (]*([0-9]{3})[-. )]*)?(([0-9]{3})[-. ]*([0-9]{2,4})([-.x ]*([0-9]+))?)",
+
+    // This is probably another email validation, but I don't have the exact regex
     "[a-zA-Z0-9]+((\\.|_)[A-Za-z0-9!#$%&'*+/=?^`~-]+)*@(?!([a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.))([A-Za-z0-9]([a-zA-Z0-9-]*[A-Za-z0-9])?\\.)+[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?",
+
+    // I think this is RFC2822 Email validation:   http://regexr.com/2rhq7
     "[a-z0-9!#$%&'*+/=?^_`~-]+(\\.[a-z0-9!#$%&'*+/=?^_`~-]+)*@([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9]([a-z0-9-]*[a-z0-9])?",
-    "\\$([1-9][0-9]{0,2}|[0-9])(\\,[0-9]{3})*(\\.[0-9]+)?(?=[ \\t\\n\\r]|$)", // Find dollar counts
-    "#([a-fA-F\\d]{3}){1,2}|[rR][gG][bB]\\(((\\s*0*(25[0-5]|2[0-4]\\d|1?\\d?\\d)\\s*,){2}\\s*0*(25[0-5]|2[0-4]\\d|1?\\d?\\d)|\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%(\\s*,\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%){2})\\s*\\)|hsl\\(\\s*0*(360|3[0-5]\\d|[12]?\\d?\\d)\\s*(,\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%\\s*){2}\\)|([rR][gG][bB][aA]\\(((\\s*0*(25[0-5]|2[0-4]\\d|1?\\d?\\d)\\s*,){3}|(\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%\\s*,){3})|[hH][sS][lL][aA]\\(\\s*0*(360|3[0-5]\\d|[12]?\\d?\\d)\\s*(,\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%\\s*){2},)\\s*0*(1|0(\\.\\d+)?)\\s*\\)", // CSS colors regexr: http://regexr.com/38lmo slightly edited to be case insensitive & not use word boundaries
+
+    // Find USD currency
+    "\\$([1-9][0-9]{0,2}|[0-9])(\\,[0-9]{3})*(\\.[0-9]+)?(?=[ \\t\\n\\r]|$)",
+
+    // Following: CSS colors regexr (in hex, rgb(r, g, b), rgb(r, g, b, a), etc. : http://regexr.com/38lmo slightly edited to be case insensitive & not use word boundaries
+    "#([a-fA-F\\d]{3}){1,2}|[rR][gG][bB]\\(((\\s*0*(25[0-5]|2[0-4]\\d|1?\\d?\\d)\\s*,){2}\\s*0*(25[0-5]|2[0-4]\\d|1?\\d?\\d)|\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%(\\s*,\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%){2})\\s*\\)|hsl\\(\\s*0*(360|3[0-5]\\d|[12]?\\d?\\d)\\s*(,\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%\\s*){2}\\)|([rR][gG][bB][aA]\\(((\\s*0*(25[0-5]|2[0-4]\\d|1?\\d?\\d)\\s*,){3}|(\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%\\s*,){3})|[hH][sS][lL][aA]\\(\\s*0*(360|3[0-5]\\d|[12]?\\d?\\d)\\s*(,\\s*0*(100(\\.0+)?|\\d?\\d(\\.\\d+)?)%\\s*){2},)\\s*0*(1|0(\\.\\d+)?)\\s*\\)",
+
+    // Valid IPv4 address match (from 0.0.0.0 - 255.255.255.255) http://regexr.com/38odc
     "(?:(?:2(?:[0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9])\\.){3}(?:(?:2([0-4][0-9]|5[0-5])|[0-1]?[0-9]?[0-9]))"
 
   )
