@@ -98,6 +98,7 @@ case class FFTFilterFeature() extends Feature {
   }
 }
 
+
 case class MatrixMultiplyFeature() extends Feature {
   override def get(task: ConvolutionTask): Double = {
     task.image.metadata.xDim * task.image.metadata.yDim * task.filters.cols * task.filters.rows
@@ -112,6 +113,9 @@ case class PosInPartition() extends Feature {
 }
 case class Periodic(period: Int) extends Feature {
   override def get(task: ConvolutionTask): Double = task.indexInPartition % period
+}
+case class RandomFeature(stdDev: Double) extends Feature {
+  override def get(task: ConvolutionTask): Double = scala.util.Random.nextGaussian()
 }
 
 object ConvolveFlickrData extends Serializable with Logging {
@@ -130,6 +134,9 @@ object ConvolveFlickrData extends Serializable with Logging {
       case "matrix_multiply_cost_model" => MatrixMultiplyFeature()
       case "global_index" => GlobalIndex()
       case "pos_in_partition" => PosInPartition()
+      case randomString if randomString.startsWith("random_") =>
+        val stdDev = randomString.split('_').last.toDouble
+        RandomFeature(stdDev)
       case periodicString if periodicString.startsWith("periodic_") =>
         val period = periodicString.split('_').last.toInt
         Periodic(period)
