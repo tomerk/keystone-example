@@ -51,7 +51,7 @@ libraryDependencies ++= Seq(
 }
 
 {
-  val defaultHadoopVersion = "2.7.3"
+  val defaultHadoopVersion = "2.7.4"
   val hadoopVersion =
     scala.util.Properties.envOrElse("SPARK_HADOOP_VERSION", defaultHadoopVersion)
   libraryDependencies += "org.apache.hadoop" % "hadoop-client" % hadoopVersion
