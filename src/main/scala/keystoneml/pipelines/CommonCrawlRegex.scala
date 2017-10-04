@@ -155,7 +155,8 @@ object CommonCrawlRegex extends Serializable with Logging {
     val tag = "a"
     val attr = "href"
     val SLOW_EMAIL_REGEX_PATTERN = "[a-zA-Z0-9]+((\\.|_)[A-Za-z0-9!#$%&'*+/=?^`{|}~-]+)*@(?!([a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.[a-zA-Z0-9]*\\.))([A-Za-z0-9]([a-zA-Z0-9-]*[A-Za-z0-9])?\\.)+[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?"
-    val URL_REGEX_PATTERN = "[(http(s)?):\\/\\/(www\\.)?a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)"//"[(http(s)?):\\/\\/(www\\.)?a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)"
+    val URL_REGEX_PATTERN = "[(http(s)?):\\/\\/(www\\.)?a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)"
+    //"[(http(s)?):\\/\\/(www\\.)?a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)"
     val HTML_TAG_PATTERN = (s"<($tag)\\s([^>]+\\s)?$attr" + "\\s*=\\s*(\"[^\"]*\"|'[^']*')[^>]*>")
     val HTML_TAG_NO_ATTR_PATTERN = s"<($tag)(\\s[^>]*)?>"
     // The below is a really bad phone regex! Matches dates, numbers, etc.
@@ -167,7 +168,7 @@ object CommonCrawlRegex extends Serializable with Logging {
     //val regexp = "([a-z0-9!#$%&'*+/=?^_`~-]+(\\.[a-z0-9!#$%&'*+/=?^_`~-]+)*|\"([\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])*\")@(([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9]([a-z0-9-]*[a-z0-9])?|\\[((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:([\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])"
     val regexp = URL_REGEX_PATTERN
     // TODO WARNME: REGEXES may not be threadsafe
-    val factories = Seq[(String, Unit=>RegexFactory)](
+    val factories = Seq[(String, Unit => RegexFactory)](
       //("DkBricsAutomatonRegexFactory", _ => new DkBricsAutomatonRegexFactory),
       ("JRegexFactory", _ => new JRegexFactory),
       ("OroRegexFactory", _ => new OroRegexFactory),
@@ -178,62 +179,64 @@ object CommonCrawlRegex extends Serializable with Logging {
     //val regexes = conf.regex.split("....")
     val regexOps: Seq[RegexTask => Int] = RegexFactoryContainer.factories.indices.map(i => regexMatcher(RegexContainer(i, conf.regex), _: RegexTask))
 
-    val bandit: BanditTrait[RegexTask, Int] = conf.policy.trim.toLowerCase.split(':') match {
-      // Constant Policies
-      case Array("constant", arm) =>
-        new ConstantBandit(arm.toInt, regexOps(arm.toInt))
+    val bandits = (0 until conf.numParts).map { _ =>
+      conf.policy.trim.toLowerCase.split(':') match {
+        // Constant Policies
+        case Array("constant", arm) =>
+          new ConstantBandit(arm.toInt, regexOps(arm.toInt))
 
-      // Oracle Policies
-      case Array("oracle", "min", path) =>
-        new OracleBandit(minOracle(path), regexOps)
+        // Oracle Policies
+        case Array("oracle", "min", path) =>
+          new OracleBandit(minOracle(path), regexOps)
 
-      // Non-contextual policies
-      case Array("epsilon-greedy") =>
-        sc.bandit(regexOps, EpsilonGreedyPolicyParams())
-      case Array("epsilon-greedy", epsilon) =>
-        sc.bandit(regexOps, EpsilonGreedyPolicyParams(epsilon.toDouble))
-      case Array("gaussian-thompson-sampling") =>
-        sc.bandit(regexOps, GaussianThompsonSamplingPolicyParams())
-      case Array("gaussian-thompson-sampling", varMultiplier) =>
-        sc.bandit(regexOps, GaussianThompsonSamplingPolicyParams(varMultiplier.toDouble))
-      case Array("ucb1-normal") =>
-        sc.bandit(regexOps, UCB1NormalPolicyParams())
-      case Array("ucb1-normal", rewardRange) =>
-        sc.bandit(regexOps, UCB1NormalPolicyParams(rewardRange.toDouble))
-      case Array("ucb-gaussian-bayes") =>
-        sc.bandit(regexOps, GaussianBayesUCBPolicyParams())
-      case Array("ucb-gaussian-bayes", rewardRange) =>
-        sc.bandit(regexOps, GaussianBayesUCBPolicyParams(rewardRange.toDouble))
+        // Non-contextual policies
+        case Array("epsilon-greedy") =>
+          sc.bandit(regexOps, EpsilonGreedyPolicyParams())
+        case Array("epsilon-greedy", epsilon) =>
+          sc.bandit(regexOps, EpsilonGreedyPolicyParams(epsilon.toDouble))
+        case Array("gaussian-thompson-sampling") =>
+          sc.bandit(regexOps, GaussianThompsonSamplingPolicyParams())
+        case Array("gaussian-thompson-sampling", varMultiplier) =>
+          sc.bandit(regexOps, GaussianThompsonSamplingPolicyParams(varMultiplier.toDouble))
+        case Array("ucb1-normal") =>
+          sc.bandit(regexOps, UCB1NormalPolicyParams())
+        case Array("ucb1-normal", rewardRange) =>
+          sc.bandit(regexOps, UCB1NormalPolicyParams(rewardRange.toDouble))
+        case Array("ucb-gaussian-bayes") =>
+          sc.bandit(regexOps, GaussianBayesUCBPolicyParams())
+        case Array("ucb-gaussian-bayes", rewardRange) =>
+          sc.bandit(regexOps, GaussianBayesUCBPolicyParams(rewardRange.toDouble))
 
-      // Contextual policies
-      case Array("contextual-epsilon-greedy", featureString) =>
-        val (features, numFeatures) = makeFeatures(featureString)
-        sc.contextualBandit(regexOps, features, ContextualEpsilonGreedyPolicyParams(numFeatures))
-      case Array("contextual-epsilon-greedy", featureString, epsilon) =>
-        val (features, numFeatures) = makeFeatures(featureString)
-        sc.contextualBandit(regexOps, features, ContextualEpsilonGreedyPolicyParams(numFeatures, epsilon.toDouble))
-      case Array("linear-thompson-sampling", featureString) =>
-        val (features, numFeatures) = makeFeatures(featureString)
-        sc.contextualBandit(regexOps, features, LinThompsonSamplingPolicyParams(numFeatures, 2.0))
-      case Array("linear-thompson-sampling", featureString, useCholesky, varMultiplier) =>
-        val (features, numFeatures) = makeFeatures(featureString)
-        sc.contextualBandit(regexOps, features, LinThompsonSamplingPolicyParams(numFeatures, varMultiplier.toDouble, useCholesky = useCholesky.toBoolean))
-      case Array("slinear-thompson-sampling", featureString) =>
-        val (features, numFeatures) = makeFeatures(featureString)
-        sc.contextualBandit(regexOps, features, new StandardizedLinThompsonSamplingPolicy(regexOps.length, numFeatures, 1.0, useCholesky = true))
-      case Array("slinear-thompson-sampling", featureString, useCholesky, varMultiplier) =>
-        val (features, numFeatures) = makeFeatures(featureString)
-        sc.contextualBandit(regexOps, features, new StandardizedLinThompsonSamplingPolicy(regexOps.length, numFeatures, varMultiplier.toDouble, useCholesky = useCholesky.toBoolean))
-      case Array("lin-ucb", featureString) =>
-        val (features, numFeatures) = makeFeatures(featureString)
-        sc.contextualBandit(regexOps, features, LinUCBPolicyParams(numFeatures))
-      case Array("lin-ucb", featureString, alpha) =>
-        val (features, numFeatures) = makeFeatures(featureString)
-        sc.contextualBandit(regexOps, features, LinUCBPolicyParams(numFeatures, alpha.toDouble))
+        // Contextual policies
+        case Array("contextual-epsilon-greedy", featureString) =>
+          val (features, numFeatures) = makeFeatures(featureString)
+          sc.contextualBandit(regexOps, features, ContextualEpsilonGreedyPolicyParams(numFeatures))
+        case Array("contextual-epsilon-greedy", featureString, epsilon) =>
+          val (features, numFeatures) = makeFeatures(featureString)
+          sc.contextualBandit(regexOps, features, ContextualEpsilonGreedyPolicyParams(numFeatures, epsilon.toDouble))
+        case Array("linear-thompson-sampling", featureString) =>
+          val (features, numFeatures) = makeFeatures(featureString)
+          sc.contextualBandit(regexOps, features, LinThompsonSamplingPolicyParams(numFeatures, 2.0))
+        case Array("linear-thompson-sampling", featureString, useCholesky, varMultiplier) =>
+          val (features, numFeatures) = makeFeatures(featureString)
+          sc.contextualBandit(regexOps, features, LinThompsonSamplingPolicyParams(numFeatures, varMultiplier.toDouble, useCholesky = useCholesky.toBoolean))
+        case Array("slinear-thompson-sampling", featureString) =>
+          val (features, numFeatures) = makeFeatures(featureString)
+          sc.contextualBandit(regexOps, features, new StandardizedLinThompsonSamplingPolicy(regexOps.length, numFeatures, 1.0, useCholesky = true))
+        case Array("slinear-thompson-sampling", featureString, useCholesky, varMultiplier) =>
+          val (features, numFeatures) = makeFeatures(featureString)
+          sc.contextualBandit(regexOps, features, new StandardizedLinThompsonSamplingPolicy(regexOps.length, numFeatures, varMultiplier.toDouble, useCholesky = useCholesky.toBoolean))
+        case Array("lin-ucb", featureString) =>
+          val (features, numFeatures) = makeFeatures(featureString)
+          sc.contextualBandit(regexOps, features, LinUCBPolicyParams(numFeatures))
+        case Array("lin-ucb", featureString, alpha) =>
+          val (features, numFeatures) = makeFeatures(featureString)
+          sc.contextualBandit(regexOps, features, LinUCBPolicyParams(numFeatures, alpha.toDouble))
 
-      case _ =>
-        throw new IllegalArgumentException(s"Invalid policy ${conf.policy}")
+        case _ =>
+          throw new IllegalArgumentException(s"Invalid policy ${conf.policy}")
     }
+  }
 
     val commoncrawl = CommonCrawlLoader(sc, conf.trainLocation).sample(false, 0.2, seed = 0l).repartitionAndSortWithinPartitions(
       new Partitioner {
@@ -265,6 +268,12 @@ object CommonCrawlRegex extends Serializable with Logging {
     val globalStart = System.currentTimeMillis()
     val banditResults = commoncrawl.mapPartitionsWithIndex {
       case (pid, it) =>
+        val bandit = if (conf.disableMulticore) {
+          bandits(pid)
+        } else {
+          bandits(0)
+        }
+
         it.zipWithIndex.map {
           case (task, index) =>
             val startTime = System.nanoTime()
