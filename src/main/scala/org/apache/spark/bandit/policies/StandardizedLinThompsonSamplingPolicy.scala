@@ -49,7 +49,7 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
                                                            numFeatures: Int,
                                                            v: Double,
                                                            useCholesky: Boolean,
-                                                           regParam: Double = 1e-4)
+                                                           regParam: Double = 1e-2)
   extends ContextualBanditPolicy(numArms, numFeatures) {
   override protected def estimateRewards(features: DenseVector[Double],
                                          armFeaturesAcc: DenseMatrix[Double],
@@ -76,7 +76,7 @@ class StandardizedLinThompsonSamplingPolicy(numArms: Int,
       val scaledRewards = (armRewardsAcc - (armFeatureSumAcc * armRewardsStats.mean)) :/ (featureStdDev * rewardStdDev)
 
 
-      val regVec = DenseVector.fill(numFeatures)((regParam + 1.0) * n) - diag(featureCorr)
+      val regVec = DenseVector.fill(numFeatures)((regParam + 1.0 * n)) - diag(featureCorr)
 
 
       //logError("About to print unregged matrix: \n" +featureCorr.toString(1000, 1000))
