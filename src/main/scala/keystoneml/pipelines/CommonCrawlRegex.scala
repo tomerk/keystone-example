@@ -299,7 +299,7 @@ object CommonCrawlRegex extends Serializable with Logging {
       }
     }
 
-    writer.write(s"-1,-1,-1,-1,-1,-1,-1,0,-1,${conf.regex},-1,${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},${conf.disableMulticore},${conf.numParts},${globalEnd - globalStart}\n")
+    writer.write(s"-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,${conf.regex},-1,${'"' + conf.policy + '"'},${'"' + conf.nonstationarity + '"'},${conf.driftDetectionRate},${conf.driftCoefficient},${conf.clusterCoefficient},${conf.communicationRate},${conf.disableMulticore}:${conf.disableAlwaysShare},${conf.numParts},${globalEnd - globalStart}\n")
 
     writer.close()
   }
