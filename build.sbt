@@ -15,7 +15,7 @@ parallelExecution in Test := false
 libraryDependencies ++= Seq(
   "org.slf4j" % "slf4j-api" % "1.7.2",
   "org.slf4j" % "slf4j-log4j12" % "1.7.2",
-  "org.scalatest" %% "scalatest" % "1.9.1" % "test",
+ // "org.scalatest" %% "scalatest" % "1.9.1" % "test",
   "org.jsoup" % "jsoup" % "1.8.3",
   "com.google.code.gson" % "gson" % "2.8.0",
   "com.fasterxml.jackson.core" % "jackson-core" % "2.8.7",
@@ -37,7 +37,7 @@ libraryDependencies ++= Seq(
 )
 
 {
-  val defaultSparkVersion = "2.1.0-bandits-snapshot"
+  val defaultSparkVersion = "2.2.1-bandits-snapshot"
   val sparkVersion =
     scala.util.Properties.envOrElse("SPARK_VERSION", defaultSparkVersion)
   val excludeHadoop = ExclusionRule(organization = "org.apache.hadoop")
