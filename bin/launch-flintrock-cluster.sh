@@ -11,7 +11,7 @@ CLUSTER_SIZE="${CLUSTER_SIZE:-8}"
 flintrock launch $BANDITS_CLUSTER \
     --spark-version "" \
     --spark-git-repository https://github.com/tomerk/spark.git \
-    --spark-git-commit 9765cdda3c7c992d308bcf9571773bb081c9a34d \
+    --spark-git-commit b5c583a55c42423c66326fccdf4188a191b33462 \
     --ec2-instance-type r3.xlarge \
     --ec2-spot-price 0.50 \
     --num-slaves $CLUSTER_SIZE
