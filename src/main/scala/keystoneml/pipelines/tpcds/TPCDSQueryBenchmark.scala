@@ -56,6 +56,7 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
                              clusterCoefficient: String = "1.0",
                              driftDetectionRate: String = "5s",
                              driftCoefficient: String = "1.0",
+                             useCBO: Boolean = false,
                              disableMulticore: Boolean = false,
                              numNodes: Int = 8,
                              warmup: Option[Int] = None)
@@ -87,6 +88,7 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
     opt[String]("driftDetectionRate") action { (x,c) => c.copy(driftDetectionRate=x) }
     opt[String]("driftCoefficient") action { (x,c) => c.copy(driftCoefficient=x) }
     opt[Unit]("disableMulticore") action { (x,c) => c.copy(disableMulticore=true) }
+    opt[Unit]("useCBO") action { (x,c) => c.copy(useCBO=true) }
     opt[Int]("warmup") action { (x,c) => c.copy(warmup=Some(x)) }
   }.parse(args, PipelineConfig()).get
 
@@ -96,18 +98,22 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
     "web_returns", "web_site", "reason", "call_center", "warehouse", "ship_mode", "income_band",
     "time_dim", "web_page")
 
-  def setupTables(spark: SparkSession, dataLocation: String, cacheTables: Boolean): Map[String, Long] = {
-    tables.map { tableName =>
+  def setupTables(spark: SparkSession, dataLocation: String, cacheTables: Boolean, useCBO: Boolean): Unit = {
+    tables.foreach { tableName =>
       spark.read.parquet(s"$dataLocation/$tableName").createOrReplaceTempView(tableName)
       if (cacheTables) {
         spark.sqlContext.cacheTable(tableName)
       }
-      tableName -> spark.table(tableName).count()
-    }.toMap
+      if (useCBO) {
+        spark.sql(s"ANALYZE TABLE $tableName COMPUTE STATISTICS").collect()
+      } else {
+        tableName -> spark.table(tableName).count()
+      }
+    }
   }
 
   def tpcdsAll(spark: SparkSession, dataLocation: String, queries: Seq[String]): Unit = {
-    val tableSizes = setupTables(spark, dataLocation, false)
+    setupTables(spark, dataLocation, false, false)
 
     // List of all TPC-DS queries
     //val tpcdsQueries = Seq("q49", "q72", "q75", "q78", "q80", "q93") //q72 is slow on hash
@@ -167,14 +173,14 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
             case _ =>
           }
 
-          val numRows = queryRelations.map(tableSizes.getOrElse(_, 0L)).sum
+          //val numRows = queryRelations.map(tableSizes.getOrElse(_, 0L)).sum
 
 
           val startTime = System.currentTimeMillis()
           spark.sql(queryString).collect()
           val totalTime = System.currentTimeMillis() - startTime
 
-          logInfo(s"Query $name took $totalTime ms (and had $numRows rows of input)")
+          logInfo(s"Query $name took $totalTime ms")// (and had $numRows rows of input)")
         }
       }
     }
@@ -281,7 +287,7 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
         throw new IllegalArgumentException(s"Invalid policy ${conf.policy}")
     }
 
-    val tableSizes = setupTables(spark, conf.dataLocation, conf.cacheTables)
+    setupTables(spark, conf.dataLocation, conf.cacheTables, conf.useCBO)
 
 
     var stagesWithJoins = Set[Int]()
@@ -318,14 +324,14 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
   def main(args: Array[String]) = {
     val appConfig = parse(args)
 
-    val conf = if (!appConfig.disableMulticore) {
+    var conf = if (!appConfig.disableMulticore) {
       new SparkConf().setAppName(s"$appName")
         .set("spark.sql.parquet.compression.codec", "snappy")
         .set("spark.bandits.driftDetectionRate", "99999999s")
         .set("spark.bandits.alwaysShare", "true")
         .set("spark.bandits.clusterCoefficient", "1e10")
         .set("spark.bandits.communicationRate", "500ms")
-        .set("spark.sql.codegen.wholeStage", "false")
+//        .set("spark.sql.codegen.wholeStage", "false")
 
     } else {
       new SparkConf().setAppName(s"$appName")
@@ -334,8 +340,16 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
         .set("spark.bandits.alwaysShare", "false")
         .set("spark.bandits.clusterCoefficient", "-1e10")
         .set("spark.bandits.communicationRate", "99999999s")
-        .set("spark.sql.codegen.wholeStage", "false")
+//        .set("spark.sql.codegen.wholeStage", "false")
+    }
 
+    conf = if (appConfig.useCBO) {
+      conf.set("spark.sql.cbo.enabled", "true")
+        .set("spark.sql.cbo.joinReorder.enabled", "true")
+        .set("spark.sql.cbo.joinReorder.dp.star.filter", "true")
+        .set("spark.sql.cbo.starSchemaDetection", "true")
+    } else {
+      conf
     }
 
     conf.setIfMissing("spark.master", "local[4]")
