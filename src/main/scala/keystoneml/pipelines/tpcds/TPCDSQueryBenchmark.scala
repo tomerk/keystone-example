@@ -21,6 +21,7 @@ import java.io._
 
 import keystoneml.bandits.{ConstantBandit, OracleBandit}
 import keystoneml.pipelines.Logging
+import keystoneml.pipelines.tpcds.TPCDSQueryBenchmark.tables
 import org.apache.spark.bandit.policies._
 import org.apache.spark.{SparkConf, SparkContext, SparkNamespaceUtils}
 import org.apache.spark.sql.{Row, SparkSession}
@@ -98,17 +99,33 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
     "web_returns", "web_site", "reason", "call_center", "warehouse", "ship_mode", "income_band",
     "time_dim", "web_page")
 
+  def databaseName(scaleFactor: Int): String = {
+    s"tpcds_sf${scaleFactor}"
+  }
+
   def setupTables(spark: SparkSession, dataLocation: String, cacheTables: Boolean, useCBO: Boolean): Unit = {
+    if (useCBO) {
+      val scaleFactor = 200
+      val tempTables = new Tables(spark.sqlContext, dsdgenDir = "", scaleFactor)
+      val database = databaseName(scaleFactor)
+      tempTables.createExternalTables(dataLocation, "parquet", database, overwrite = true)//, discoverPartitions = true)
+
+      //analyze tables
+      tempTables.tables.foreach { table =>
+
+        spark.sqlContext.sql(s"ANALYZE TABLE $database.${table.name} COMPUTE STATISTICS")
+        val allColumns = table.fields.map(_.name).mkString(", ")
+        println(s"Analyzing table ${table.name} columns $allColumns.")
+        log.info(s"Analyzing table ${table.name} columns $allColumns.")
+        spark.sqlContext.sql(s"ANALYZE TABLE $database.${table.name} COMPUTE STATISTICS FOR COLUMNS $allColumns")
+      }
+    } else {
     tables.foreach { tableName =>
       spark.read.parquet(s"$dataLocation/$tableName").createOrReplaceTempView(tableName)
       if (cacheTables) {
         spark.sqlContext.cacheTable(tableName)
       }
-      if (useCBO) {
-        spark.sql(s"ANALYZE TABLE $tableName COMPUTE STATISTICS").collect()
-      } else {
-        tableName -> spark.table(tableName).count()
-      }
+      tableName -> spark.table(tableName).count()
     }
   }
 
