@@ -349,7 +349,8 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
         .set("spark.bandits.alwaysShare", "true")
         .set("spark.bandits.clusterCoefficient", "1e10")
         .set("spark.bandits.communicationRate", "500ms")
-//        .set("spark.sql.codegen.wholeStage", "false")
+        .set("spark.sql.autoBroadcastJoinThreshold", (20 * 1024 * 1024).toString)
+      //        .set("spark.sql.codegen.wholeStage", "false")
 
     } else {
       new SparkConf().setAppName(s"$appName")
@@ -358,7 +359,8 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
         .set("spark.bandits.alwaysShare", "false")
         .set("spark.bandits.clusterCoefficient", "-1e10")
         .set("spark.bandits.communicationRate", "99999999s")
-//        .set("spark.sql.codegen.wholeStage", "false")
+        .set("spark.sql.autoBroadcastJoinThreshold", (20 * 1024 * 1024).toString)
+      //        .set("spark.sql.codegen.wholeStage", "false")
     }
 
     conf = if (appConfig.useCBO) {
