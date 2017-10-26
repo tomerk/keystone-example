@@ -120,12 +120,13 @@ object TPCDSQueryBenchmark extends Serializable with Logging {
         spark.sqlContext.sql(s"ANALYZE TABLE $database.${table.name} COMPUTE STATISTICS FOR COLUMNS $allColumns")
       }
     } else {
-    tables.foreach { tableName =>
-      spark.read.parquet(s"$dataLocation/$tableName").createOrReplaceTempView(tableName)
-      if (cacheTables) {
-        spark.sqlContext.cacheTable(tableName)
+      tables.foreach { tableName =>
+        spark.read.parquet(s"$dataLocation/$tableName").createOrReplaceTempView(tableName)
+        if (cacheTables) {
+          spark.sqlContext.cacheTable(tableName)
+        }
+        tableName -> spark.table(tableName).count()
       }
-      tableName -> spark.table(tableName).count()
     }
   }
 
